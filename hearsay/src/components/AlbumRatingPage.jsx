@@ -109,13 +109,27 @@ export default function AlbumRatingPage() {
               </div>
             </div>
 
-            {/* Album Info and Track List */}
+            {/* Middle Column - Album Info and Review */}
             <div className="col-span-5">
               <div className="border-2 border-black p-4 mb-4">
                 <h1 className="text-2xl font-bold">{album?.title}</h1>
                 <p className="text-gray-600">{album?.artist}</p>
               </div>
               
+              <div className="border-2 border-black p-4">
+                <h2 className="font-semibold mb-4">Review</h2>
+                <textarea 
+                  className="w-full h-32 border border-black p-2 resize-none"
+                  placeholder="Write your review here..."
+                />
+                <button className="w-full mt-4 border-2 border-black py-2 hover:bg-gray-100">
+                  Submit Review
+                </button>
+              </div>
+            </div>
+
+            {/* Track List */}
+            <div className="col-span-3">
               <div className="border-2 border-black p-4">
                 <h2 className="font-semibold mb-4">Track List</h2>
                 <div className="space-y-2">
@@ -137,20 +151,6 @@ export default function AlbumRatingPage() {
                     </div>
                   ))}
                 </div>
-              </div>
-            </div>
-
-            {/* Review Section */}
-            <div className="col-span-3">
-              <div className="border-2 border-black p-4 h-full">
-                <h2 className="font-semibold mb-4">Review</h2>
-                <textarea 
-                  className="w-full h-48 border border-black p-2 resize-none"
-                  placeholder="Write your review here..."
-                />
-                <button className="w-full mt-4 border-2 border-black py-2 hover:bg-gray-100">
-                  Submit Review
-                </button>
               </div>
             </div>
           </div>
