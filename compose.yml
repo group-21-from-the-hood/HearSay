@@ -1,0 +1,39 @@
+networks: 
+  public_bridge:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.19.0.0/24
+          gateway: 172.19.0.1
+
+
+services:
+
+  mongodb:
+    image: mongo:latest # Or specify a version like mongo:6.0
+    container_name: mongodb
+    ports:
+      - "27017:27017" # Map host port 27017 to container port 27017
+    volumes:
+      - ./db:/data/db # Persist data in a named volume
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
+    restart: unless-stopped # Restart policy
+    networks:
+      public_bridge:
+        ipv4_address: 172.19.0.101
+
+
+  cloudflared: 
+    # depends_on:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflare-tunnel 
+    restart: unless-stopped 
+    command: tunnel run 
+    environment: 
+      - TUNNEL_TOKEN=${CLOUDFLARED_TOKEN}
+    networks:
+      public_bridge:
+        ipv4_address: 172.19.0.100
