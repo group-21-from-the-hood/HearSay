@@ -16,7 +16,7 @@ services:
     ports:
       - "27017:27017" # Map host port 27017 to container port 27017
     volumes:
-      - ./db:/data/db # Persist data in a named volume
+      - ./db/data:/data/db # Persist data in a named volume
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
