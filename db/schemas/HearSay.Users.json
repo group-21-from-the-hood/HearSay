@@ -1,0 +1,23 @@
+[{
+  "_id": {
+    "$oid": "690f03564f943098d30a5bee"
+  },
+  "firstname": "",
+  "lastname": "",
+  "email": "",
+  "accounts": [
+    {
+      "kind": "HearSay",
+      "username": "",
+      "password": ""
+    },
+    {
+      "kind": "Google",
+      "uid": ""
+    },
+    {
+      "kind": "Spotify",
+      "uid": ""
+    }
+  ]
+}]

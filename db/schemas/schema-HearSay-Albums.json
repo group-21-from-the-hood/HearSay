@@ -1,0 +1,80 @@
+{
+  "$jsonSchema": {
+    "bsonType": "object",
+    "required": [
+      "_id",
+      "artist",
+      "dislikes",
+      "genre",
+      "likes",
+      "name",
+      "rating",
+      "releaseDate",
+      "review",
+      "songs",
+      "spotifyAlbumId"
+    ],
+    "properties": {
+      "_id": {
+        "bsonType": "objectId"
+      },
+      "artist": {
+        "bsonType": "object",
+        "properties": {
+          "oid": {
+            "bsonType": "string"
+          }
+        },
+        "required": [
+          "oid"
+        ]
+      },
+      "dislikes": {
+        "bsonType": "string"
+      },
+      "genre": {
+        "bsonType": "array"
+      },
+      "likes": {
+        "bsonType": "string"
+      },
+      "name": {
+        "bsonType": "string"
+      },
+      "rating": {
+        "bsonType": "string"
+      },
+      "releaseDate": {
+        "bsonType": "string"
+      },
+      "review": {
+        "bsonType": "object",
+        "properties": {
+          "oid": {
+            "bsonType": "string"
+          }
+        },
+        "required": [
+          "oid"
+        ]
+      },
+      "songs": {
+        "bsonType": "array",
+        "items": {
+          "bsonType": "object",
+          "properties": {
+            "oid": {
+              "bsonType": "string"
+            }
+          },
+          "required": [
+            "oid"
+          ]
+        }
+      },
+      "spotifyAlbumId": {
+        "bsonType": "string"
+      }
+    }
+  }
+}
