@@ -5,6 +5,7 @@ import SongRatingPage from './components/SongRatingPage';
 import MyReviewsPage from './components/MyReviewsPage';
 import DiscoverPage from './components/DiscoverPage';
 import RandomPage from './components/RandomPage';
+import AuthPage from './components/AuthPage';
 
 function App() {
   return (
@@ -16,6 +17,7 @@ function App() {
         <Route path="/my-reviews" element={<MyReviewsPage />} />
         <Route path="/discover" element={<DiscoverPage />} />
         <Route path="/random" element={<RandomPage />} />
+        <Route path="/auth" element={<AuthPage />} />
       </Routes>
     </Router>
   );

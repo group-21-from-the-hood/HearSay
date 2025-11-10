@@ -1,1 +1,115 @@
 @import "tailwindcss";
+
+/* Dark mode overrides for common Tailwind classes. These use higher specificity
+	 to override compiled Tailwind utility classes so the app visually switches
+	 when the root <html> has the `dark` class. */
+
+:root {
+	/* Light (default) palette: neutral/classy */
+	--bg: #f5f7fa;         /* very light neutral */
+	--text: #0f1724;       /* deep charcoal */
+	--muted: #6b7280;      /* muted gray */
+	--card: #ffffff;       /* card surface */
+	--border: #e6e9ee;     /* soft border */
+		--accent: #b7791f;     /* warm amber accent */
+		--btn-text: #ffffff;   /* text on accent buttons */
+	--wood: #efe6dd;       /* light wood base color */
+}
+
+.dark {
+	/* Dark palette complements the neutral look */
+	--bg: #071022;        /* deep navy */
+	--text: #e6eef8;      /* light text */
+	--muted: #9aa7bb;
+	--card: #071425;      /* dark card */
+	--border: #18303a;    /* subtle dark border */
+		--accent: #f0b971;    /* warm amber/soft gold in dark */
+		--btn-text: #071425;  /* dark text on light variant if needed */
+	--wood: #2f1f15;      /* dark wood base color for dark mode */
+}
+
+/* Apply variables to body and some generic elements */
+body {
+	background-color: var(--bg) !important;
+	color: var(--text) !important;
+	font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+	transition: background-color 150ms ease, color 150ms ease;
+}
+
+/* Wood pattern background: subtle, repeatable, darker overlay in dark mode */
+body {
+	/* base is a subtle mix of neutral background and a light wood tint */
+	background-color: var(--wood) !important;
+	/* apply a semi-transparent overlay plus the user-provided wood background */
+		background-image: linear-gradient(rgba(74,47,24,0.12), rgba(74,47,24,0.08)), url('/brown-wooden-floor-textured-background.jpg');
+		/* use cover so the image fills the viewport smoothly (user-provided texture)", */
+		background-repeat: no-repeat;
+		background-size: cover;
+		background-attachment: fixed;
+}
+
+/* Dark mode: stronger wood tint and darker overlay so the wood reads rich and deep */
+.dark body {
+	background-color: var(--wood) !important;
+	background-image: linear-gradient(rgba(10,6,4,0.72), rgba(10,6,4,0.72)), url('/brown-wooden-floor-textured-background.jpg');
+	background-repeat: no-repeat;
+	background-size: cover;
+}
+
+/* Reusable UI tokens */
+.card {
+	background: var(--card);
+	border: 1px solid var(--border);
+	color: var(--text);
+}
+
+.btn-primary {
+	background-color: var(--accent);
+	color: var(--btn-text);
+	border: 1px solid rgba(0,0,0,0.05);
+	transition: opacity 120ms ease, transform 120ms ease;
+}
+.btn-primary:hover { opacity: 0.95; transform: translateY(-1px); }
+.btn-neutral {
+	background: transparent;
+	color: var(--text);
+	border: 1px solid var(--border);
+}
+
+/* Card shadow tuned for classy feel */
+.card-shadow { box-shadow: 0 6px 18px rgba(19, 27, 33, 0.06); }
+
+/* Accent helpers */
+.accent-link { color: var(--accent); transition: color 120ms ease; }
+.accent-link:hover { color: color-mix(in srgb, var(--accent) 80%, black 20%); text-decoration: underline; }
+
+/* Card hover using accent tint */
+.card:hover { border-color: color-mix(in srgb, var(--accent) 12%, var(--border)); }
+.card:hover .card-shadow { box-shadow: 0 12px 30px color-mix(in srgb, var(--accent) 8%, rgba(19,27,33,0.06)); }
+
+/* Headings */
+h1, h2, h3 { color: var(--text); }
+h2.accent { color: color-mix(in srgb, var(--accent) 90%, var(--text) 10%); }
+
+/* Small utility */
+.muted { color: var(--muted); }
+
+
+
+/* Override common Tailwind utility classes used across the app */
+.dark .bg-white { background-color: var(--card) !important; }
+.dark .text-black { color: var(--text) !important; }
+.dark .text-gray-600 { color: var(--muted) !important; }
+.dark .bg-gray-200 { background-color: #0f1724 !important; }
+.dark .border-black { border-color: var(--border) !important; }
+.dark .border { border-color: var(--border) !important; }
+.dark .bg-gray-100 { background-color: #071421 !important; }
+
+/* Buttons and inputs */
+.dark input, .dark textarea, .dark select {
+	background-color: transparent !important;
+	color: var(--text) !important;
+	border-color: var(--border) !important;
+}
