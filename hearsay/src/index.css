@@ -113,3 +113,47 @@ h2.accent { color: color-mix(in srgb, var(--accent) 90%, var(--text) 10%); }
 	color: var(--text) !important;
 	border-color: var(--border) !important;
 }
+
+/* Force all text to black only in light mode (respects the `.dark` class).
+	 When the root has the `.dark` class, the rule below will not apply and
+	 the theme variables / dark overrides will take effect. */
+:root:not(.dark) body,
+:root:not(.dark) body * {
+	color: #000 !important;
+}
+
+/* Header background that adapts to theme. Uses a semi-opaque card color so
+	 page content scrolls under a slightly translucent bar. */
+.header-bg {
+	/* slightly more transparent header background */
+	background-color: color-mix(in srgb, var(--card) 72%, transparent);
+	backdrop-filter: blur(6px);
+	-webkit-backdrop-filter: blur(6px);
+}
+.dark .header-bg {
+	/* slightly more transparent in dark mode as well */
+	background-color: color-mix(in srgb, var(--card) 72%, transparent);
+}
+
+/* Landing page text outline helpers for improved contrast.
+	 - Light mode: white outline around dark text
+	 - Dark mode: black outline around light text
+	 These use a combination of text-shadow and -webkit-text-stroke for best
+	 cross-browser results. The rules are scoped to the landing page via a
+	 container class to avoid affecting the whole app. */
+.landing-outline--light h1,
+.landing-outline--light h2,
+.landing-outline--light h3,
+.landing-outline--light .font-medium {
+	/* Very thin white outline for light mode — only on headings and titles */
+	text-shadow: -0.25px -0.25px 0 #fff, 0.25px -0.25px 0 #fff, -0.25px 0.25px 0 #fff, 0.25px 0.25px 0 #fff;
+	-webkit-text-stroke: 0.08px #fff;
+}
+.landing-outline--dark h1,
+.landing-outline--dark h2,
+.landing-outline--dark h3,
+.landing-outline--dark .font-medium {
+	/* Very thin black outline for dark mode — only on headings and titles */
+	text-shadow: -0.25px -0.25px 0 #000, 0.25px -0.25px 0 #000, -0.25px 0.25px 0 #000, 0.25px 0.25px 0 #000;
+	-webkit-text-stroke: 0.08px #000;
+}

@@ -2,11 +2,13 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { spotifyApi, getAccessToken } from '../config/spotify';
 import Header from './Header';
+import { useTheme } from '../context/ThemeContext';
 
 const MIN_LOADING_TIME = 1000; // milliseconds
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 export default function LandingPage() {
+  const { theme } = useTheme();
   const [albums, setAlbums] = useState([]);
   const [songs, setSongs] = useState([]);
   const [albumsLoading, setAlbumsLoading] = useState(true);
@@ -83,12 +85,14 @@ export default function LandingPage() {
     fetchPopularMusic();
   }, []);
 
+  const outlineClass = theme === 'dark' ? 'landing-outline--dark' : 'landing-outline--light';
+
   return (
-  <div className="min-h-screen">
+  <div className={`min-h-screen text-black ${outlineClass} pt-16`}> 
       <Header />
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
+    <main className="container mx-auto px-4 py-8 text-black">
         {error && (
           <div className="text-red-500 mb-4 p-4 border border-red-500">
             {error}
@@ -97,7 +101,7 @@ export default function LandingPage() {
 
         {/* Popular Albums */}
         <section className="mb-12">
-          <h2 className="text-xl font-semibold mb-2 accent">Popular Albums</h2>
+          <h2 className="text-xl font-semibold mb-2 accent text-black">Popular Albums</h2>
           <div className="p-4">
             {albumsLoading ? (
               <div className="h-64 flex items-center justify-center">
@@ -109,7 +113,7 @@ export default function LandingPage() {
                   {albums.map(album => (
                     <div
                       key={album.id}
-                      className="flex flex-col cursor-pointer group card card-shadow rounded-lg overflow-hidden transition-shadow bg-black text-white"
+                      className="flex flex-col cursor-pointer group card card-shadow rounded-lg overflow-hidden transition-shadow bg-white text-black"
                       onClick={() => navigate('/album-rating', { state: { item: album } })}
                     >
                       <div className="aspect-square mb-0">
@@ -120,20 +124,20 @@ export default function LandingPage() {
                             className="w-full h-full object-cover"
                           />
                         ) : (
-                          <div className="w-full h-full bg-black flex items-center justify-center text-white">
+                          <div className="w-full h-full bg-gray-200 flex items-center justify-center text-black">
                             No Image
                           </div>
                         )}
                       </div>
                       <div className="p-3 text-center">
-                        <p className="font-medium group-hover:underline truncate text-white">{album.title}</p>
-                        <p className="text-sm text-gray-300 truncate">{album.artist}</p>
+                        <p className="font-medium group-hover:underline truncate text-black">{album.title}</p>
+                        <p className="text-sm text-gray-600 truncate">{album.artist}</p>
                       </div>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className="text-center text-gray-500">No albums found.</div>
+                <div className="text-center text-black">No albums found.</div>
               )
             )}
           </div>
@@ -141,7 +145,7 @@ export default function LandingPage() {
 
         {/* Popular Songs */}
         <section>
-          <h2 className="text-xl font-semibold mb-2 accent">Popular Songs</h2>
+          <h2 className="text-xl font-semibold mb-2 accent text-black">Popular Songs</h2>
           <div className="p-4">
             {songsLoading ? (
               <div className="h-64 flex items-center justify-center">
@@ -153,7 +157,7 @@ export default function LandingPage() {
                   {songs.map(song => (
                     <div
                       key={song.id}
-                      className="flex flex-col cursor-pointer group card card-shadow rounded-lg overflow-hidden transition-shadow bg-black text-white"
+                      className="flex flex-col cursor-pointer group card card-shadow rounded-lg overflow-hidden transition-shadow bg-white text-black"
                       onClick={() => navigate('/song-rating', { state: { item: song } })}
                     >
                       <div className="aspect-square mb-0">
@@ -164,20 +168,20 @@ export default function LandingPage() {
                             className="w-full h-full object-cover"
                           />
                         ) : (
-                          <div className="w-full h-full bg-black flex items-center justify-center text-white">
+                          <div className="w-full h-full bg-gray-200 flex items-center justify-center text-black">
                             No Image
                           </div>
                         )}
                       </div>
                       <div className="p-3 text-center">
-                        <p className="font-medium group-hover:underline truncate text-white">{song.title}</p>
-                        <p className="text-sm text-gray-300 truncate">{song.artist}</p>
+                        <p className="font-medium group-hover:underline truncate text-black">{song.title}</p>
+                        <p className="text-sm text-gray-600 truncate">{song.artist}</p>
                       </div>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className="text-center text-gray-500">No songs found.</div>
+                <div className="text-center text-black">No songs found.</div>
               )
             )}
           </div>

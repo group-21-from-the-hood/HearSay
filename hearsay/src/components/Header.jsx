@@ -6,10 +6,10 @@ export default function Header() {
   const { theme, toggle } = useTheme();
 
   return (
-  <header className="border-b border-black bg-transparent">
-      <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+  <header className="fixed top-0 left-0 right-0 z-50 border-b border-black header-bg">
+    <div className="container mx-auto px-4 h-16 flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <div className="text-2xl font-extrabold cursor-pointer accent-link" onClick={() => navigate('/')}>
+          <div className="text-3xl md:text-4xl font-extrabold cursor-pointer accent-link" onClick={() => navigate('/')}>
             HearSay
           </div>
           <nav className="hidden md:block">

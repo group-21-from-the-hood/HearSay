@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTheme } from '../context/ThemeContext';
 import { useNavigate } from 'react-router-dom';
 
 export default function AuthPage() {
@@ -9,6 +10,7 @@ export default function AuthPage() {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { theme, toggle } = useTheme();
 
   const validateEmail = (e) => /\S+@\S+\.\S+/.test(e);
 
@@ -74,7 +76,16 @@ export default function AuthPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-white">
+    <div className="relative min-h-screen flex items-center justify-center bg-white">
+      {/* Dark mode toggle (top-right) */}
+      <button
+        onClick={toggle}
+        title={theme === 'dark' ? 'Switch to light' : 'Switch to dark'}
+        className="absolute top-4 right-4 px-3 py-2 border border-gray-300 rounded"
+      >
+        {theme === 'dark' ? '🌞' : '🌙'}
+      </button>
+
       <div className="w-full max-w-md bg-white rounded-lg shadow p-6">
         <h1 className="text-2xl font-bold mb-4 text-gray-900">{mode === 'login' ? 'Log in' : 'Sign up'}</h1>
 
