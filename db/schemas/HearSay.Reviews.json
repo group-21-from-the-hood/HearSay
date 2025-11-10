@@ -1,0 +1,121 @@
+[{
+  "_id": {
+    "$oid": "690f12c44f943098d30a5c07"
+  },
+  "item": {
+    "type": "song",
+    "oid": ""
+  },
+  "type": "review",
+  "user": {
+    "oid": ""
+  },
+  "rating": 0,
+  "title": "",
+  "text": "",
+  "likes": 0,
+  "dislikes": 0,
+  "comments": [
+    {
+      "oid": ""
+    }
+  ],
+  "createdAt": "",
+  "updatedAt": ""
+},
+{
+  "_id": {
+    "$oid": "690f16ea4f943098d30a5c09"
+  },
+  "item": {
+    "type": "artist",
+    "oid": ""
+  },
+  "type": "review",
+  "user": {
+    "oid": ""
+  },
+  "rating": 0,
+  "title": "",
+  "text": "",
+  "likes": 0,
+  "dislikes": 0,
+  "comments": [
+    {
+      "oid": ""
+    }
+  ],
+  "createdAt": "",
+  "updatedAt": ""
+},
+{
+  "_id": {
+    "$oid": "690f17054f943098d30a5c0b"
+  },
+  "item": {
+    "type": "album",
+    "oid": ""
+  },
+  "type": "review",
+  "user": {
+    "oid": ""
+  },
+  "rating": 0,
+  "title": "",
+  "text": "",
+  "likes": 0,
+  "dislikes": 0,
+  "comments": [
+    {
+      "oid": ""
+    }
+  ],
+  "createdAt": "",
+  "updatedAt": ""
+},
+{
+  "_id": {
+    "$oid": "690f17864f943098d30a5c0d"
+  },
+  "item": {
+    "type": "review",
+    "oid": ""
+  },
+  "type": "comment",
+  "user": {
+    "oid": ""
+  },
+  "text": "",
+  "likes": 0,
+  "dislikes": 0,
+  "comments": [
+    {
+      "oid": ""
+    }
+  ],
+  "createdAt": "",
+  "updatedAt": ""
+},
+{
+  "_id": {
+    "$oid": "690f184f4f943098d30a5c10"
+  },
+  "item": {
+    "type": "comment",
+    "oid": ""
+  },
+  "type": "comment",
+  "user": {
+    "oid": ""
+  },
+  "text": "",
+  "likes": 0,
+  "dislikes": 0,
+  "comments": [
+    {
+      "oid": ""
+    }
+  ],
+  "createdAt": "",
+  "updatedAt": ""
+}]
