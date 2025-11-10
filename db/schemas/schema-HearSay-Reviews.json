@@ -1,0 +1,86 @@
+{
+  "$jsonSchema": {
+    "bsonType": "object",
+    "required": [
+      "_id",
+      "comments",
+      "createdAt",
+      "dislikes",
+      "item",
+      "likes",
+      "text",
+      "type",
+      "updatedAt",
+      "user"
+    ],
+    "properties": {
+      "_id": {
+        "bsonType": "objectId"
+      },
+      "comments": {
+        "bsonType": "array",
+        "items": {
+          "bsonType": "object",
+          "properties": {
+            "oid": {
+              "bsonType": "string"
+            }
+          },
+          "required": [
+            "oid"
+          ]
+        }
+      },
+      "createdAt": {
+        "bsonType": "string"
+      },
+      "dislikes": {
+        "bsonType": "int"
+      },
+      "item": {
+        "bsonType": "object",
+        "properties": {
+          "oid": {
+            "bsonType": "string"
+          },
+          "type": {
+            "bsonType": "string"
+          }
+        },
+        "required": [
+          "oid",
+          "type"
+        ]
+      },
+      "likes": {
+        "bsonType": "int"
+      },
+      "rating": {
+        "bsonType": "int"
+      },
+      "text": {
+        "bsonType": "string"
+      },
+      "title": {
+        "bsonType": "string"
+      },
+      "type": {
+        "bsonType": "string"
+      },
+      "updatedAt": {
+        "bsonType": "string"
+      },
+      "user": {
+        "bsonType": "object",
+        "properties": {
+          "oid": {
+            "bsonType": "string"
+          }
+        },
+        "required": [
+          "oid"
+        ]
+      }
+    }
+  }
+}

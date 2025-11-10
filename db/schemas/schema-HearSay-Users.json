@@ -1,0 +1,49 @@
+{
+  "$jsonSchema": {
+    "bsonType": "object",
+    "required": [
+      "_id",
+      "accounts",
+      "email",
+      "firstname",
+      "lastname"
+    ],
+    "properties": {
+      "_id": {
+        "bsonType": "objectId"
+      },
+      "accounts": {
+        "bsonType": "array",
+        "items": {
+          "bsonType": "object",
+          "properties": {
+            "kind": {
+              "bsonType": "string"
+            },
+            "password": {
+              "bsonType": "string"
+            },
+            "uid": {
+              "bsonType": "string"
+            },
+            "username": {
+              "bsonType": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        }
+      },
+      "email": {
+        "bsonType": "string"
+      },
+      "firstname": {
+        "bsonType": "string"
+      },
+      "lastname": {
+        "bsonType": "string"
+      }
+    }
+  }
+}
