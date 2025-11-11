@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { spotifyApi, getAccessToken } from '../config/spotify';
 import { useTheme } from '../context/ThemeContext';
@@ -10,6 +10,17 @@ export default function RandomPage() {
   const [itemType, setItemType] = useState(null); // 'song' or 'album'
   const navigate = useNavigate();
   const { theme } = useTheme();
+  const resultsRef = useRef(null);
+
+  // Scroll to results when randomItem changes
+  useEffect(() => {
+    if (randomItem && resultsRef.current) {
+      resultsRef.current.scrollIntoView({ 
+        behavior: 'smooth', 
+        block: 'center' 
+      });
+    }
+  }, [randomItem]);
 
   const getRandomSong = async () => {
     try {
@@ -161,7 +172,7 @@ export default function RandomPage() {
       )}
       
       {randomItem && (
-        <div className="max-w-5xl mx-auto">
+        <div ref={resultsRef} className="max-w-5xl mx-auto">
           <div className="grid grid-cols-2 gap-8">
             {/* Left: Cover Art */}
             <div className="border-2 border-black dark:border-white flex items-start">
