@@ -140,9 +140,9 @@ export default function AuthPage() {
       
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-md mx-auto">
-          <div className="border-2 border-black dark:border-white p-6">
-            <h1 className="text-2xl font-bold mb-6 dark:text-white">
-              {mode === 'login' ? 'Log in' : 'Sign up'}
+          <div className="border-2 border-black dark:border-white bg-white dark:bg-gray-900 p-6">
+            <h1 className="text-2xl font-bold mb-6">
+              <span className="text-black dark:text-white">{mode === 'login' ? 'Login' : 'Register'}</span>
             </h1>
             
             {error && (
@@ -152,7 +152,7 @@ export default function AuthPage() {
             {/* Google Sign In Button */}
             <button
               onClick={handleGoogleSSO}
-              className="w-full border-2 border-black dark:border-white py-3 px-4 hover:bg-gray-100 dark:hover:bg-gray-800 dark:text-white flex items-center justify-center gap-3 mb-6"
+              className="w-full border-2 border-black dark:border-white bg-white dark:bg-gray-900 text-black dark:text-white py-3 px-4 hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center justify-center gap-3 mb-6 transition-colors"
             >
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M19.8 10.2273C19.8 9.51819 19.7364 8.83637 19.6182 8.18182H10V12.05H15.3818C15.15 13.3 14.4455 14.3591 13.3864 15.0682V17.5773H16.7182C18.6091 15.8364 19.8 13.2727 19.8 10.2273Z" fill="#4285F4"/>
@@ -168,30 +168,30 @@ export default function AuthPage() {
                 <div className="w-full border-t-2 border-black dark:border-white"></div>
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white dark:bg-gray-900 dark:text-white">Or</span>
+                <span className="px-2 bg-white dark:bg-gray-900 text-black dark:text-white">Or</span>
               </div>
             </div>
             
             <form onSubmit={handleLocalSubmit} className="space-y-4">
               <div>
-                <label className="block mb-2 dark:text-white">Email</label>
+                <label className="block mb-2 text-black dark:text-white">Email</label>
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full border-2 border-black dark:border-white px-3 py-2 dark:bg-gray-800 dark:text-white"
+                  className="w-full border-2 border-black dark:border-white bg-white dark:bg-gray-800 text-black dark:text-white px-3 py-2"
                   placeholder="Enter your email"
                   required
                 />
               </div>
               
               <div>
-                <label className="block mb-2 dark:text-white">Password</label>
+                <label className="block mb-2 text-black dark:text-white">Password</label>
                 <input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full border-2 border-black dark:border-white px-3 py-2 dark:bg-gray-800 dark:text-white"
+                  className="w-full border-2 border-black dark:border-white bg-white dark:bg-gray-800 text-black dark:text-white px-3 py-2"
                   placeholder="Enter your password"
                   required
                 />
@@ -199,12 +199,12 @@ export default function AuthPage() {
               
               {mode === 'signup' && (
                 <div>
-                  <label className="block mb-2 dark:text-white">Confirm Password</label>
+                  <label className="block mb-2 text-black dark:text-white">Confirm Password</label>
                   <input
                     type="password"
                     value={confirm}
                     onChange={(e) => setConfirm(e.target.value)}
-                    className="w-full border-2 border-black dark:border-white px-3 py-2 dark:bg-gray-800 dark:text-white"
+                    className="w-full border-2 border-black dark:border-white bg-white dark:bg-gray-800 text-black dark:text-white px-3 py-2"
                     placeholder="Confirm your password"
                     required
                   />
@@ -213,19 +213,19 @@ export default function AuthPage() {
               
               <button
                 type="submit"
-                className="w-full border-2 border-black dark:border-white py-2 hover:bg-gray-100 dark:hover:bg-gray-800 dark:text-white"
+                className="w-full border-2 border-black dark:border-white bg-white dark:bg-gray-900 text-black dark:text-white py-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                 disabled={loading}
               >
-                {loading ? 'Please wait...' : mode === 'login' ? 'Log in' : 'Create account'}
+                {loading ? 'Please wait...' : mode === 'login' ? 'Login' : 'Register'}
               </button>
             </form>
             
             <div className="mt-4 text-center">
               <button
                 onClick={() => setMode(mode === 'login' ? 'signup' : 'login')}
-                className="text-sm hover:underline dark:text-white"
+                className="text-sm hover:underline text-black dark:text-white"
               >
-                {mode === 'login' ? "Don't have an account? Sign up" : 'Already have an account? Log in'}
+                {mode === 'login' ? "Don't have an account? Register" : 'Already have an account? Login'}
               </button>
             </div>
           </div>

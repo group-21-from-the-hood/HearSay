@@ -4,23 +4,37 @@ const ThemeContext = createContext();
 
 export function ThemeProvider({ children }) {
   const [theme, setTheme] = useState(() => {
+    // Check localStorage first, default to light
     const saved = localStorage.getItem('theme');
     return saved || 'light';
   });
 
   useEffect(() => {
-    localStorage.setItem('theme', theme);
     const root = document.documentElement;
     
+    console.log('🎨 Current theme:', theme);
+    console.log('📋 HTML element before:', root.className);
+    
+    // Remove dark class
+    root.classList.remove('dark');
+    
+    // Add dark class only if theme is dark
     if (theme === 'dark') {
       root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
     }
+    
+    console.log('📋 HTML element after:', root.className);
+    
+    // Save to localStorage
+    localStorage.setItem('theme', theme);
   }, [theme]);
 
   const toggleTheme = () => {
-    setTheme(prev => prev === 'light' ? 'dark' : 'light');
+    setTheme(prev => {
+      const newTheme = prev === 'light' ? 'dark' : 'light';
+      console.log('🔄 Toggle:', prev, '→', newTheme);
+      return newTheme;
+    });
   };
 
   return (
