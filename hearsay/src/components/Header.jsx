@@ -30,30 +30,33 @@ export default function Header() {
           </ul>
         </nav>
 
-        <div className="flex items-center space-x-4">
-          <button
-            onClick={toggleTheme}
-            className="p-2 border-2 border-black dark:border-white bg-white dark:bg-gray-900 text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-            aria-label="Toggle theme"
-          >
-            {theme === 'dark' ? '☀️' : '🌙'}
-          </button>
-          
-          <form onSubmit={handleSearch}>
+        <div className="flex items-center gap-4">
+          {/* Search */}
+          <form onSubmit={handleSearch} className="h-10 flex items-center">
             <input
               type="search"
               placeholder="search"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="border-2 border-black dark:border-white bg-white dark:bg-gray-900 text-black dark:text-white px-3 py-1 placeholder-gray-500 dark:placeholder-gray-400"
+              className="h-full border-2 border-black dark:border-white bg-white dark:bg-gray-900 text-black dark:text-white px-3 placeholder-gray-500 dark:placeholder-gray-400"
             />
           </form>
           
+          {/* Login/Register */}
           <button 
             onClick={() => navigate('/auth')}
-            className="border-2 border-black dark:border-white bg-white dark:bg-gray-900 text-black dark:text-white px-4 py-1 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            className="h-10 border-2 border-black dark:border-white bg-white dark:bg-gray-900 text-black dark:text-white px-4 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex items-center justify-center"
           >
             login/register
+          </button>
+
+          {/* Theme Toggle */}
+          <button
+            onClick={toggleTheme}
+            className="h-10 w-10 border-2 border-black dark:border-white bg-white dark:bg-gray-900 text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex items-center justify-center"
+            aria-label="Toggle theme"
+          >
+            {theme === 'dark' ? '☀️' : '🌙'}
           </button>
         </div>
       </div>
