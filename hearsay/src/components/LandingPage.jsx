@@ -85,14 +85,11 @@ export default function LandingPage() {
     fetchPopularMusic();
   }, []);
 
-  const outlineClass = theme === 'dark' ? 'landing-outline--dark' : 'landing-outline--light';
-
   return (
-  <div className={`min-h-screen text-black ${outlineClass} pt-16`}> 
+    <div className="min-h-screen bg-white dark:bg-gray-900 pt-16">
       <Header />
 
-      {/* Main Content */}
-    <main className="container mx-auto px-4 py-8 text-black">
+      <main className="container mx-auto px-4 py-8">
         {error && (
           <div className="text-red-500 mb-4 p-4 border border-red-500">
             {error}
@@ -101,22 +98,22 @@ export default function LandingPage() {
 
         {/* Popular Albums */}
         <section className="mb-12">
-          <h2 className="text-xl font-semibold mb-2 accent text-black">Popular Albums</h2>
+          <h2 className="text-xl font-semibold mb-2 dark:text-white">Popular Albums</h2>
           <div className="p-4">
             {albumsLoading ? (
               <div className="h-64 flex items-center justify-center">
-                <div className="text-lg">Loading albums...</div>
+                <div className="text-lg dark:text-white">Loading albums...</div>
               </div>
             ) : (
-              (albums.length > 0) ? (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-6">
+              albums.length > 0 && (
+                <div className="grid grid-cols-5 gap-4">
                   {albums.map(album => (
                     <div
                       key={album.id}
-                      className="flex flex-col cursor-pointer group card card-shadow rounded-lg overflow-hidden transition-shadow bg-white text-black"
+                      className="flex flex-col cursor-pointer group"
                       onClick={() => navigate('/album-rating', { state: { item: album } })}
                     >
-                      <div className="aspect-square mb-0">
+                      <div className="aspect-square mb-2 border-2 border-black dark:border-white">
                         {album.coverArt ? (
                           <img
                             src={album.coverArt}
@@ -129,15 +126,13 @@ export default function LandingPage() {
                           </div>
                         )}
                       </div>
-                      <div className="p-3 text-center">
-                        <p className="font-medium group-hover:underline truncate text-black">{album.title}</p>
-                        <p className="text-sm text-gray-600 truncate">{album.artist}</p>
+                      <div className="text-center">
+                        <p className="font-medium group-hover:underline truncate dark:text-white">{album.title}</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 truncate">{album.artist}</p>
                       </div>
                     </div>
                   ))}
                 </div>
-              ) : (
-                <div className="text-center text-black">No albums found.</div>
               )
             )}
           </div>
@@ -145,22 +140,22 @@ export default function LandingPage() {
 
         {/* Popular Songs */}
         <section>
-          <h2 className="text-xl font-semibold mb-2 accent text-black">Popular Songs</h2>
+          <h2 className="text-xl font-semibold mb-2 dark:text-white">Popular Songs</h2>
           <div className="p-4">
             {songsLoading ? (
               <div className="h-64 flex items-center justify-center">
-                <div className="text-lg">Loading songs...</div>
+                <div className="text-lg dark:text-white">Loading songs...</div>
               </div>
             ) : (
-              (songs.length > 0) ? (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-6">
+              songs.length > 0 && (
+                <div className="grid grid-cols-5 gap-4">
                   {songs.map(song => (
                     <div
                       key={song.id}
-                      className="flex flex-col cursor-pointer group card card-shadow rounded-lg overflow-hidden transition-shadow bg-white text-black"
+                      className="flex flex-col cursor-pointer group"
                       onClick={() => navigate('/song-rating', { state: { item: song } })}
                     >
-                      <div className="aspect-square mb-0">
+                      <div className="aspect-square mb-2 border-2 border-black dark:border-white">
                         {song.coverArt ? (
                           <img
                             src={song.coverArt}
@@ -173,15 +168,13 @@ export default function LandingPage() {
                           </div>
                         )}
                       </div>
-                      <div className="p-3 text-center">
-                        <p className="font-medium group-hover:underline truncate text-black">{song.title}</p>
-                        <p className="text-sm text-gray-600 truncate">{song.artist}</p>
+                      <div className="text-center">
+                        <p className="font-medium group-hover:underline truncate dark:text-white">{song.title}</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 truncate">{song.artist}</p>
                       </div>
                     </div>
                   ))}
                 </div>
-              ) : (
-                <div className="text-center text-black">No songs found.</div>
               )
             )}
           </div>
