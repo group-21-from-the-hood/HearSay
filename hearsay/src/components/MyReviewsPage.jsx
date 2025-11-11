@@ -5,7 +5,9 @@ export default function MyReviewsPage() {
 
   return (
     <main className="container mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold mb-6 text-black dark:text-white">My Reviews</h1>
+      <h1 className="text-2xl font-bold mb-6">
+        <span className="text-black dark:text-white">My Reviews</span>
+      </h1>
       
       {reviews.length === 0 ? (
         <div className="border-2 border-black dark:border-white bg-white dark:bg-gray-900 p-8 text-center">

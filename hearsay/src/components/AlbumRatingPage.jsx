@@ -90,12 +90,16 @@ export default function AlbumRatingPage() {
           {/* Middle Column - Album Info and Review */}
           <div className="col-span-5">
             <div className="border-2 border-black dark:border-white p-4 mb-4 bg-white dark:bg-gray-900 text-black dark:text-white">
-              <h1 className="text-2xl font-bold">{album?.title}</h1>
+              <h1 className="text-2xl font-bold">
+                <span className="text-black dark:text-white">{album?.title}</span>
+              </h1>
               <p className="text-gray-600 dark:text-gray-400">{album?.artist}</p>
             </div>
             
             <div className="border-2 border-black dark:border-white p-4 bg-white dark:bg-gray-900 text-black dark:text-white">
-              <h2 className="font-semibold mb-4">Review</h2>
+              <h2 className="font-semibold mb-4">
+                <span className="text-black dark:text-white">Review</span>
+              </h2>
               <textarea 
                 className="w-full h-32 border-2 border-black dark:border-white bg-white dark:bg-gray-800 text-black dark:text-white p-2 resize-none"
                 placeholder="Write your review here..."
@@ -109,7 +113,9 @@ export default function AlbumRatingPage() {
           {/* Track List */}
           <div className="col-span-3">
             <div className="border-2 border-black dark:border-white p-4 bg-white dark:bg-gray-900 text-black dark:text-white">
-              <h2 className="font-semibold mb-4">Track List</h2>
+              <h2 className="font-semibold mb-4">
+                <span className="text-black dark:text-white">Track List</span>
+              </h2>
               <div className="space-y-2">
                 {tracks.map((track) => (
                   <div key={track.id} className="flex items-center gap-4 py-2 border-b border-black dark:border-white last:border-0">
@@ -136,7 +142,9 @@ export default function AlbumRatingPage() {
 
       {/* Related Albums */}
       <div className="mt-12">
-        <h2 className="text-xl font-semibold mb-4 text-black dark:text-white">Related Albums</h2>
+        <h2 className="text-xl font-semibold mb-4">
+          <span className="text-black dark:text-white">Related Albums</span>
+        </h2>
         <div className="border-2 border-black dark:border-white p-4 bg-white dark:bg-gray-900">
           <div className="grid grid-cols-5 gap-4">
             {relatedAlbums.map(related => (

@@ -1,4 +1,7 @@
 @import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 /* Dark mode overrides for common Tailwind classes. These use higher specificity
 	 to override compiled Tailwind utility classes so the app visually switches
@@ -119,7 +122,3 @@ h2.accent { color: var(--accent); }
 	text-shadow: -0.25px -0.25px 0 #000, 0.25px -0.25px 0 #000, -0.25px 0.25px 0 #000, 0.25px 0.25px 0 #000;
 	-webkit-text-stroke: 0.08px #000;
 }
-
-@tailwind base;
-@tailwind components;
-@tailwind utilities;

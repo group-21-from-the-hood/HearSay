@@ -95,7 +95,9 @@ export default function LandingPage() {
 
       {/* Popular Albums */}
       <section className="mb-12">
-        <h2 className="text-xl font-semibold mb-2 text-black dark:text-white">Popular Albums</h2>
+        <h2 className="text-xl font-semibold mb-2">
+          <span className="text-black dark:text-white">Popular Albums</span>
+        </h2>
         <div className="p-4">
           {albumsLoading ? (
             <div className="h-64 flex items-center justify-center">
@@ -137,7 +139,9 @@ export default function LandingPage() {
 
       {/* Popular Songs */}
       <section>
-        <h2 className="text-xl font-semibold mb-2 text-black dark:text-white">Popular Songs</h2>
+        <h2 className="text-xl font-semibold mb-2">
+          <span className="text-black dark:text-white">Popular Songs</span>
+        </h2>
         <div className="p-4">
           {songsLoading ? (
             <div className="h-64 flex items-center justify-center">

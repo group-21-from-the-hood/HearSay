@@ -62,7 +62,9 @@ export default function SongRatingPage() {
           {/* Right: Song Info */}
           <div className="w-1/2">
             <div className="border-2 border-black dark:border-white p-6 bg-white dark:bg-gray-900 text-black dark:text-white">
-              <h1 className="text-3xl font-bold mb-2">{song?.title}</h1>
+              <h1 className="text-3xl font-bold mb-2">
+                <span className="text-black dark:text-white">{song?.title}</span>
+              </h1>
               <p className="text-xl mb-2">{song?.artist}</p>
               <p className="text-gray-600 dark:text-gray-400 mb-4">
                 Album: {songDetails?.album}<br />
@@ -85,7 +87,9 @@ export default function SongRatingPage() {
 
               {/* Review Section */}
               <div>
-                <h2 className="font-bold mb-2">Review</h2>
+                <h2 className="font-bold mb-2">
+                  <span className="text-black dark:text-white">Review</span>
+                </h2>
                 <textarea 
                   className="w-full h-32 border-2 border-black dark:border-white bg-white dark:bg-gray-800 text-black dark:text-white p-2 resize-none mb-4"
                   placeholder="Write your review here..."
