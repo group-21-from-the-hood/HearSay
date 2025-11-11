@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { spotifyApi, getAccessToken } from '../config/spotify';
-import Header from './Header';
+import { useTheme } from '../context/ThemeContext';
 
 export default function AlbumRatingPage() {
   const location = useLocation();
   const album = location.state?.item;
+  const { theme } = useTheme();
   const [albumDetails, setAlbumDetails] = useState(null);
   const [tracks, setTracks] = useState([]);
   const [trackRatings, setTrackRatings] = useState({});
@@ -73,29 +74,46 @@ export default function AlbumRatingPage() {
         </div>
       ) : (
         <div className="grid grid-cols-12 gap-6">
-          {/* Cover Art */}
+          {/* Cover Art and Player */}
           <div className="col-span-4">
-            <div className="aspect-square border-2 border-black dark:border-white bg-white dark:bg-gray-900">
+            <div className="aspect-square border-2 border-black dark:border-white bg-white dark:bg-gray-900 mb-4">
               {album?.coverArt && (
                 <img src={album.coverArt} alt={album.title} className="w-full h-full object-cover" />
               )}
             </div>
-            <div className="mt-4 space-y-2 text-sm text-black dark:text-white">
-              <p><span className="font-semibold">Release Date:</span> {albumDetails?.releaseDate}</p>
-              <p><span className="font-semibold">Label:</span> {albumDetails?.label}</p>
-              <p><span className="font-semibold">Total Tracks:</span> {albumDetails?.totalTracks}</p>
+
+            {/* Embedded Player */}
+            <div className="border-2 border-black dark:border-white overflow-hidden" style={{ backgroundColor: theme === 'dark' ? '#121212' : '#ffffff' }}>
+              <iframe
+                key={album?.id}
+                style={{ borderRadius: '0' }}
+                src={`https://open.spotify.com/embed/album/${album?.id}?utm_source=generator`}
+                width="100%"
+                height="352"
+                frameBorder="0"
+                allowFullScreen=""
+                allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                loading="lazy"
+                className="w-full"
+              />
             </div>
           </div>
 
           {/* Middle Column - Album Info and Review */}
           <div className="col-span-5">
             <div className="border-2 border-black dark:border-white p-4 mb-4 bg-white dark:bg-gray-900 text-black dark:text-white">
-              <h1 className="text-2xl font-bold">
+              <h1 className="text-2xl font-bold mb-2">
                 <span className="text-black dark:text-white">{album?.title}</span>
               </h1>
-              <p className="text-gray-600 dark:text-gray-400">{album?.artist}</p>
+              <p className="text-gray-600 dark:text-gray-400 mb-2">{album?.artist}</p>
+              <div className="text-sm italic text-gray-600 dark:text-gray-400 space-y-1">
+                <p>Release Date: {albumDetails?.releaseDate}</p>
+                <p>Label: {albumDetails?.label}</p>
+                <p>Total Tracks: {albumDetails?.totalTracks}</p>
+              </div>
             </div>
             
+            {/* Review */}
             <div className="border-2 border-black dark:border-white p-4 bg-white dark:bg-gray-900 text-black dark:text-white">
               <h2 className="font-semibold mb-4">
                 <span className="text-black dark:text-white">Review</span>

@@ -8,6 +8,7 @@ import DiscoverPage from './components/DiscoverPage';
 import RandomPage from './components/RandomPage';
 import AuthPage from './components/AuthPage';
 import SearchPage from './components/SearchPage';
+import ArtistPage from './components/ArtistPage';
 
 function App() {
   return (
@@ -18,6 +19,7 @@ function App() {
           <Routes>
             <Route path="/" element={<LandingPage />} />
             <Route path="/search" element={<SearchPage />} />
+            <Route path="/artist/:id" element={<ArtistPage />} />
             <Route path="/album-rating" element={<AlbumRatingPage />} />
             <Route path="/song-rating" element={<SongRatingPage />} />
             <Route path="/my-reviews" element={<MyReviewsPage />} />
