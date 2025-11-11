@@ -91,18 +91,18 @@ export default function LandingPage() {
 
       <main className="container mx-auto px-4 py-8">
         {error && (
-          <div className="text-red-500 mb-4 p-4 border border-red-500">
+          <div className="text-red-500 mb-4 p-4 border-2 border-red-500">
             {error}
           </div>
         )}
 
         {/* Popular Albums */}
         <section className="mb-12">
-          <h2 className="text-xl font-semibold mb-2 dark:text-white">Popular Albums</h2>
+          <h2 className="text-xl font-semibold mb-2 text-black dark:text-white">Popular Albums</h2>
           <div className="p-4">
             {albumsLoading ? (
               <div className="h-64 flex items-center justify-center">
-                <div className="text-lg dark:text-white">Loading albums...</div>
+                <div className="text-lg text-black dark:text-white">Loading albums...</div>
               </div>
             ) : (
               albums.length > 0 && (
@@ -113,7 +113,7 @@ export default function LandingPage() {
                       className="flex flex-col cursor-pointer group"
                       onClick={() => navigate('/album-rating', { state: { item: album } })}
                     >
-                      <div className="aspect-square mb-2 border-2 border-black dark:border-white">
+                      <div className="aspect-square mb-2 border-2 border-black dark:border-white bg-white">
                         {album.coverArt ? (
                           <img
                             src={album.coverArt}
@@ -121,13 +121,13 @@ export default function LandingPage() {
                             className="w-full h-full object-cover"
                           />
                         ) : (
-                          <div className="w-full h-full bg-gray-200 flex items-center justify-center text-black">
+                          <div className="w-full h-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-black dark:text-white">
                             No Image
                           </div>
                         )}
                       </div>
                       <div className="text-center">
-                        <p className="font-medium group-hover:underline truncate dark:text-white">{album.title}</p>
+                        <p className="font-medium group-hover:underline truncate text-black dark:text-white">{album.title}</p>
                         <p className="text-sm text-gray-600 dark:text-gray-400 truncate">{album.artist}</p>
                       </div>
                     </div>
@@ -140,11 +140,11 @@ export default function LandingPage() {
 
         {/* Popular Songs */}
         <section>
-          <h2 className="text-xl font-semibold mb-2 dark:text-white">Popular Songs</h2>
+          <h2 className="text-xl font-semibold mb-2 text-black dark:text-white">Popular Songs</h2>
           <div className="p-4">
             {songsLoading ? (
               <div className="h-64 flex items-center justify-center">
-                <div className="text-lg dark:text-white">Loading songs...</div>
+                <div className="text-lg text-black dark:text-white">Loading songs...</div>
               </div>
             ) : (
               songs.length > 0 && (
@@ -155,7 +155,7 @@ export default function LandingPage() {
                       className="flex flex-col cursor-pointer group"
                       onClick={() => navigate('/song-rating', { state: { item: song } })}
                     >
-                      <div className="aspect-square mb-2 border-2 border-black dark:border-white">
+                      <div className="aspect-square mb-2 border-2 border-black dark:border-white bg-white">
                         {song.coverArt ? (
                           <img
                             src={song.coverArt}
@@ -163,13 +163,13 @@ export default function LandingPage() {
                             className="w-full h-full object-cover"
                           />
                         ) : (
-                          <div className="w-full h-full bg-gray-200 flex items-center justify-center text-black">
+                          <div className="w-full h-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-black dark:text-white">
                             No Image
                           </div>
                         )}
                       </div>
                       <div className="text-center">
-                        <p className="font-medium group-hover:underline truncate dark:text-white">{song.title}</p>
+                        <p className="font-medium group-hover:underline truncate text-black dark:text-white">{song.title}</p>
                         <p className="text-sm text-gray-600 dark:text-gray-400 truncate">{song.artist}</p>
                       </div>
                     </div>
