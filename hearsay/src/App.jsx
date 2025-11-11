@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { ThemeProvider } from './context/ThemeContext';
+import Header from './components/Header';
 import LandingPage from './components/LandingPage';
 import AlbumRatingPage from './components/AlbumRatingPage';
 import SongRatingPage from './components/SongRatingPage';
@@ -10,19 +10,22 @@ import AuthPage from './components/AuthPage';
 
 function App() {
   return (
-    <ThemeProvider>
-      <Router>
-        <Routes>
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/album-rating" element={<AlbumRatingPage />} />
-          <Route path="/song-rating" element={<SongRatingPage />} />
-          <Route path="/my-reviews" element={<MyReviewsPage />} />
-          <Route path="/discover" element={<DiscoverPage />} />
-          <Route path="/random" element={<RandomPage />} />
-          <Route path="/auth" element={<AuthPage />} />
-        </Routes>
-      </Router>
-    </ThemeProvider>
+    <Router>
+      <div className="min-h-screen bg-white dark:bg-gray-900">
+        <Header />
+        <div className="pt-16">
+          <Routes>
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/album-rating" element={<AlbumRatingPage />} />
+            <Route path="/song-rating" element={<SongRatingPage />} />
+            <Route path="/my-reviews" element={<MyReviewsPage />} />
+            <Route path="/discover" element={<DiscoverPage />} />
+            <Route path="/random" element={<RandomPage />} />
+            <Route path="/auth" element={<AuthPage />} />
+          </Routes>
+        </div>
+      </div>
+    </Router>
   );
 }
 
