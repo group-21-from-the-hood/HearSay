@@ -87,7 +87,7 @@ export default function ArtistPage() {
           }))
           .sort((a, b) => b.popularity - a.popularity);
 
-        // Get full details for singles
+        // Get full details for singles and extract first track
         const singleDetailsPromises = singleItems
           .slice(0, 50)
           .map(single => spotifyApi.getAlbum(single.id));
@@ -95,17 +95,23 @@ export default function ArtistPage() {
         const singleDetailsResponses = await Promise.all(singleDetailsPromises);
 
         const sortedSingles = singleDetailsResponses
-          .map(response => ({
-            id: response.body.id,
-            title: response.body.name,
-            artist: response.body.artists[0]?.name,
-            coverArt: response.body.images?.[0]?.url,
-            releaseDate: response.body.release_date,
-            totalTracks: response.body.total_tracks,
-            popularity: response.body.popularity || 0,
-            type: response.body.album_type,
-            spotifyUrl: response.body.external_urls.spotify
-          }))
+          .map(response => {
+            // Get the first track from the single
+            const firstTrack = response.body.tracks?.items?.[0];
+            
+            return {
+              id: firstTrack?.id || response.body.id, // Use track ID for singles
+              title: response.body.name,
+              artist: response.body.artists[0]?.name,
+              coverArt: response.body.images?.[0]?.url,
+              releaseDate: response.body.release_date,
+              totalTracks: response.body.total_tracks,
+              popularity: response.body.popularity || 0,
+              type: response.body.album_type,
+              spotifyUrl: response.body.external_urls.spotify,
+              album: response.body.name // Add album name for track
+            };
+          })
           .sort((a, b) => b.popularity - a.popularity);
 
         setAlbums(sortedAlbums);

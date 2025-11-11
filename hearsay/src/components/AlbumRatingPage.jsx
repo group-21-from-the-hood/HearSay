@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { spotifyApi, getAccessToken } from '../config/spotify';
 import { useTheme } from '../context/ThemeContext';
+import HeadphoneRating from './HeadphoneRating';
 
 export default function AlbumRatingPage() {
   const location = useLocation();
@@ -74,7 +75,7 @@ export default function AlbumRatingPage() {
         </div>
       ) : (
         <div className="grid grid-cols-12 gap-6">
-          {/* Cover Art and Player */}
+          {/* Cover Art and Info */}
           <div className="col-span-4">
             <div className="aspect-square border-2 border-black dark:border-white bg-white dark:bg-gray-900 mb-4">
               {album?.coverArt && (
@@ -82,8 +83,20 @@ export default function AlbumRatingPage() {
               )}
             </div>
 
+            {/* Album Info */}
+            <div className="border-2 border-black dark:border-white p-4 bg-white dark:bg-gray-900 text-black dark:text-white">
+              <div className="text-sm space-y-2">
+                <p><span className="font-semibold">Release Date:</span> {albumDetails?.releaseDate}</p>
+                <p><span className="font-semibold">Label:</span> {albumDetails?.label}</p>
+                <p><span className="font-semibold">Total Tracks:</span> {albumDetails?.totalTracks}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Middle Column - Player and Review */}
+          <div className="col-span-5">
             {/* Embedded Player */}
-            <div className="border-2 border-black dark:border-white overflow-hidden" style={{ backgroundColor: theme === 'dark' ? '#121212' : '#ffffff' }}>
+            <div className="border-2 border-black dark:border-white overflow-hidden mb-4" style={{ backgroundColor: theme === 'dark' ? '#121212' : '#ffffff' }}>
               <iframe
                 key={album?.id}
                 style={{ borderRadius: '0' }}
@@ -96,21 +109,6 @@ export default function AlbumRatingPage() {
                 loading="lazy"
                 className="w-full"
               />
-            </div>
-          </div>
-
-          {/* Middle Column - Album Info and Review */}
-          <div className="col-span-5">
-            <div className="border-2 border-black dark:border-white p-4 mb-4 bg-white dark:bg-gray-900 text-black dark:text-white">
-              <h1 className="text-2xl font-bold mb-2">
-                <span className="text-black dark:text-white">{album?.title}</span>
-              </h1>
-              <p className="text-gray-600 dark:text-gray-400 mb-2">{album?.artist}</p>
-              <div className="text-sm italic text-gray-600 dark:text-gray-400 space-y-1">
-                <p>Release Date: {albumDetails?.releaseDate}</p>
-                <p>Label: {albumDetails?.label}</p>
-                <p>Total Tracks: {albumDetails?.totalTracks}</p>
-              </div>
             </div>
             
             {/* Review */}
@@ -130,28 +128,29 @@ export default function AlbumRatingPage() {
 
           {/* Track List */}
           <div className="col-span-3">
-            <div className="border-2 border-black dark:border-white p-4 bg-white dark:bg-gray-900 text-black dark:text-white">
-              <h2 className="font-semibold mb-4">
+            <div className="border-2 border-black dark:border-white bg-white dark:bg-gray-900 text-black dark:text-white flex flex-col" style={{ maxHeight: 'calc(100vh - 8rem)' }}>
+              <h2 className="font-semibold p-4 pb-2 border-b-2 border-black dark:border-white">
                 <span className="text-black dark:text-white">Track List</span>
               </h2>
-              <div className="space-y-2">
-                {tracks.map((track) => (
-                  <div key={track.id} className="flex items-center gap-4 py-2 border-b border-black dark:border-white last:border-0">
-                    <span className="w-8 text-gray-500 dark:text-gray-400">{track.trackNumber}</span>
-                    <span className="flex-1">{track.name}</span>
-                    <span className="text-gray-500 dark:text-gray-400">{formatDuration(track.duration)}</span>
-                    <select 
-                      className="border-2 border-black dark:border-white bg-white dark:bg-gray-800 text-black dark:text-white px-2 py-1"
-                      value={trackRatings[track.id] || ''}
-                      onChange={(e) => handleTrackRating(track.id, e.target.value)}
-                    >
-                      <option value="">★</option>
-                      {[1,2,3,4,5].map(num => (
-                        <option key={num} value={num}>{'★'.repeat(num)}</option>
-                      ))}
-                    </select>
-                  </div>
-                ))}
+              <div className="overflow-y-auto p-4 pt-2 flex-1">
+                <div className="space-y-3">
+                  {tracks.map((track) => (
+                    <div key={track.id} className="flex flex-col gap-1 py-2 border-b border-black dark:border-white last:border-0">
+                      <div className="flex items-center gap-2">
+                        <span className="w-6 text-gray-500 dark:text-gray-400 text-sm">{track.trackNumber}</span>
+                        <span className="flex-1 text-sm truncate">{track.name}</span>
+                        <span className="text-gray-500 dark:text-gray-400 text-xs">{formatDuration(track.duration)}</span>
+                      </div>
+                      <div className="ml-8">
+                        <HeadphoneRating
+                          size="small"
+                          value={trackRatings[track.id] || 0}
+                          onChange={(rating) => handleTrackRating(track.id, rating)}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>

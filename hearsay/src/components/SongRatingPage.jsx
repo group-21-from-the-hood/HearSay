@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { spotifyApi, getAccessToken } from '../config/spotify';
 import { useTheme } from '../context/ThemeContext';
+import HeadphoneRating from './HeadphoneRating';
 
 export default function SongRatingPage() {
   const location = useLocation();
@@ -51,7 +52,7 @@ export default function SongRatingPage() {
         </div>
       ) : (
         <div className="grid grid-cols-12 gap-6">
-          {/* Left: Cover Art and Player */}
+          {/* Left: Cover Art and Info */}
           <div className="col-span-4">
             <div className="aspect-square border-2 border-black dark:border-white bg-white dark:bg-gray-900 mb-4">
               {song?.coverArt && (
@@ -59,8 +60,19 @@ export default function SongRatingPage() {
               )}
             </div>
 
+            {/* Song Info */}
+            <div className="border-2 border-black dark:border-white p-4 bg-white dark:bg-gray-900 text-black dark:text-white">
+              <div className="text-sm space-y-2">
+                <p><span className="font-semibold">Album:</span> {songDetails?.album}</p>
+                <p><span className="font-semibold">Duration:</span> {formatDuration(songDetails?.duration)}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Middle Column - Player and Review */}
+          <div className="col-span-5">
             {/* Embedded Player */}
-            <div className="border-2 border-black dark:border-white overflow-hidden" style={{ backgroundColor: theme === 'dark' ? '#121212' : '#ffffff' }}>
+            <div className="border-2 border-black dark:border-white overflow-hidden mb-4" style={{ backgroundColor: theme === 'dark' ? '#121212' : '#ffffff' }}>
               <iframe
                 key={song?.id}
                 style={{ borderRadius: '0' }}
@@ -73,20 +85,6 @@ export default function SongRatingPage() {
                 loading="lazy"
                 className="w-full"
               />
-            </div>
-          </div>
-
-          {/* Middle Column - Song Info and Review */}
-          <div className="col-span-5">
-            <div className="border-2 border-black dark:border-white p-4 mb-4 bg-white dark:bg-gray-900 text-black dark:text-white">
-              <h1 className="text-2xl font-bold mb-2">
-                <span className="text-black dark:text-white">{song?.title}</span>
-              </h1>
-              <p className="text-gray-600 dark:text-gray-400 mb-2">{song?.artist}</p>
-              <div className="text-sm italic text-gray-600 dark:text-gray-400 space-y-1">
-                <p>Album: {songDetails?.album}</p>
-                <p>Duration: {formatDuration(songDetails?.duration)}</p>
-              </div>
             </div>
             
             {/* Review */}
@@ -110,16 +108,13 @@ export default function SongRatingPage() {
               <h2 className="font-semibold mb-4">
                 <span className="text-black dark:text-white">Rating</span>
               </h2>
-              <select 
-                className="w-full border-2 border-black dark:border-white bg-white dark:bg-gray-800 text-black dark:text-white px-4 py-2 text-xl"
-                value={rating}
-                onChange={(e) => setRating(e.target.value)}
-              >
-                <option value="">Select Rating</option>
-                {[1,2,3,4,5].map(num => (
-                  <option key={num} value={num}>{'★'.repeat(num)}</option>
-                ))}
-              </select>
+              <div className="flex justify-center">
+                <HeadphoneRating
+                  value={rating}
+                  onChange={setRating}
+                  size="large"
+                />
+              </div>
             </div>
           </div>
         </div>
