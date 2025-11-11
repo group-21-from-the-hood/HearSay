@@ -1,7 +1,35 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { useNavigate } from 'react-router-dom';
 import Header from './Header';
+
+// PKCE helpers
+function base64urlencode(a) {
+  // Convert the ArrayBuffer to string using Uint8 array.
+  // btoa takes chars from 0-255 and base64 encodes.
+  return btoa(String.fromCharCode.apply(null, new Uint8Array(a)))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+}
+
+async function sha256(plain) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(plain);
+  return await crypto.subtle.digest('SHA-256', data);
+}
+
+function randomString(length = 64) {
+  const array = new Uint8Array(length);
+  crypto.getRandomValues(array);
+  // convert to base64url
+  return base64urlencode(array);
+}
+
+async function createCodeChallenge(verifier) {
+  const hashed = await sha256(verifier);
+  return base64urlencode(hashed);
+}
 
 export default function AuthPage() {
   const [mode, setMode] = useState('login'); // 'login' or 'signup'
@@ -70,10 +98,40 @@ export default function AuthPage() {
   };
 
   const handleGoogleSSO = () => {
-    // In a real app this should redirect to your backend endpoint that starts the
-    // Google OAuth flow (e.g. /auth/google). Here we open a placeholder.
-    // Replace the URL with your server route once you implement it.
-    window.location.href = import.meta.env.VITE_GOOGLE_OAUTH_URL || '/auth/google';
+    // Client-side PKCE flow: generate code_verifier & code_challenge, store verifier
+    (async () => {
+      const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+      const redirectUri = import.meta.env.VITE_GOOGLE_REDIRECT_URI || `${window.location.origin}/auth/callback`;
+      if (!clientId) {
+        alert('Missing VITE_GOOGLE_CLIENT_ID in environment');
+        return;
+      }
+
+      const code_verifier = randomString(64);
+      const code_challenge = await createCodeChallenge(code_verifier);
+      // Store verifier in localStorage so it survives redirects/tab behavior in development
+      // (sessionStorage can be lost if the redirect opens a new tab or origin changes).
+      try {
+        localStorage.setItem('google_pkce_verifier', code_verifier);
+      } catch (e) {
+        // fallback to sessionStorage if localStorage isn't available
+        sessionStorage.setItem('google_pkce_verifier', code_verifier);
+      }
+
+      const params = new URLSearchParams({
+        client_id: clientId,
+        redirect_uri: redirectUri,
+        response_type: 'code',
+        scope: 'openid profile email',
+        access_type: 'offline',
+        include_granted_scopes: 'true',
+        code_challenge: code_challenge,
+        code_challenge_method: 'S256',
+        prompt: 'select_account',
+      });
+
+      window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+    })();
   };
 
   return (
