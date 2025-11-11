@@ -19,7 +19,7 @@ export default function Header() {
     <header className="fixed top-0 left-0 right-0 z-50 bg-white dark:bg-gray-900 border-b-2 border-black dark:border-white transition-colors">
       <div className="container mx-auto px-4 py-3 flex items-center justify-between">
         <Link to="/" className="text-xl font-bold text-black dark:text-white hover:underline">
-          LOGO
+          HearSay
         </Link>
         
         <nav className="flex-1 mx-8">
