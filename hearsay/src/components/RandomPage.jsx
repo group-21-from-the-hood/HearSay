@@ -7,6 +7,7 @@ export default function RandomPage() {
   const [randomItem, setRandomItem] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [itemType, setItemType] = useState(null); // 'song' or 'album'
   const navigate = useNavigate();
   const { theme } = useTheme();
 
@@ -15,6 +16,7 @@ export default function RandomPage() {
       setRandomItem(null);
       setLoading(true);
       setError(null);
+      setItemType('song');
       
       const token = await getAccessToken();
       spotifyApi.setAccessToken(token);
@@ -69,19 +71,87 @@ export default function RandomPage() {
     }
   };
 
+  const getRandomAlbum = async () => {
+    try {
+      setRandomItem(null);
+      setLoading(true);
+      setError(null);
+      setItemType('album');
+      
+      const token = await getAccessToken();
+      spotifyApi.setAccessToken(token);
+
+      const randomChars = 'abcdefghijklmnopqrstuvwxyz';
+      let album = null;
+      let attempts = 0;
+      const maxAttempts = 10;
+
+      while (!album && attempts < maxAttempts) {
+        attempts++;
+        const randomChar = randomChars[Math.floor(Math.random() * randomChars.length)];
+        const randomOffset = Math.floor(Math.random() * 100);
+
+        try {
+          const response = await spotifyApi.searchAlbums(`${randomChar}*`, {
+            limit: 1,
+            offset: randomOffset,
+            market: 'US'
+          });
+
+          if (response.body.albums.items.length > 0) {
+            album = response.body.albums.items[0];
+            break;
+          }
+        } catch (searchError) {
+          console.warn(`Attempt ${attempts} failed:`, searchError);
+        }
+      }
+
+      if (album) {
+        setRandomItem({
+          id: album.id,
+          title: album.name,
+          artist: album.artists[0].name,
+          coverArt: album.images?.[0]?.url,
+          album: album.name,
+          albumArtist: album.artists[0].name,
+          releaseDate: album.release_date,
+          totalTracks: album.total_tracks,
+          spotifyUrl: album.external_urls.spotify
+        });
+      } else {
+        setError('Unable to find a random album. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error fetching random album:', error);
+      setError('An error occurred while fetching a random album. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <main className="container mx-auto px-4 py-8">
       <div className="mb-8">
         <h1 className="text-2xl font-bold mb-4">
-          <span className="text-black dark:text-white">Random Song Generator</span>
+          <span className="text-black dark:text-white">Random Generator</span>
         </h1>
-        <button 
-          className="border-2 border-black dark:border-white bg-white dark:bg-gray-900 text-black dark:text-white px-6 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50 transition-colors"
-          onClick={getRandomSong}
-          disabled={loading}
-        >
-          {loading ? 'Loading...' : 'Get Random Song'}
-        </button>
+        <div className="flex gap-4">
+          <button 
+            className="border-2 border-black dark:border-white bg-white dark:bg-gray-900 text-black dark:text-white px-6 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50 transition-colors"
+            onClick={getRandomSong}
+            disabled={loading}
+          >
+            {loading && itemType === 'song' ? 'Loading...' : 'Random Song'}
+          </button>
+          <button 
+            className="border-2 border-black dark:border-white bg-white dark:bg-gray-900 text-black dark:text-white px-6 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50 transition-colors"
+            onClick={getRandomAlbum}
+            disabled={loading}
+          >
+            {loading && itemType === 'album' ? 'Loading...' : 'Random Album'}
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -91,31 +161,31 @@ export default function RandomPage() {
       )}
       
       {randomItem && (
-        <div className="max-w-4xl mx-auto">
-          <div className="grid grid-cols-2 gap-6">
+        <div className="max-w-5xl mx-auto">
+          <div className="grid grid-cols-2 gap-8">
             {/* Left: Cover Art */}
-            <div className="border-2 border-black dark:border-white h-full">
+            <div className="border-2 border-black dark:border-white flex items-start">
               {randomItem.coverArt ? (
                 <img 
                   src={randomItem.coverArt} 
                   alt={randomItem.title} 
-                  className="w-full h-full object-cover"
+                  className="w-full h-auto object-contain"
                 />
               ) : (
-                <div className="w-full h-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-black dark:text-white">
+                <div className="w-full aspect-square bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-black dark:text-white">
                   No Image
                 </div>
               )}
             </div>
 
             {/* Right: Player and Info */}
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-6">
               {/* Embed Player */}
               <div className="border-2 border-black dark:border-white overflow-hidden" style={{ backgroundColor: theme === 'dark' ? '#121212' : '#ffffff' }}>
                 <iframe
-                  key={theme}
+                  key={randomItem.id}
                   style={{ borderRadius: '0' }}
-                  src={`https://open.spotify.com/embed/track/${randomItem.id}?utm_source=generator`}
+                  src={`https://open.spotify.com/embed/${itemType === 'album' ? 'album' : 'track'}/${randomItem.id}?utm_source=generator`}
                   width="100%"
                   height="152"
                   frameBorder="0"
@@ -127,13 +197,10 @@ export default function RandomPage() {
               </div>
 
               {/* Album Information */}
-              <div className="border-2 border-black dark:border-white bg-white dark:bg-gray-900 p-4 flex-1">
-                <h3 className="font-semibold mb-3">
-                  <span className="text-black dark:text-white">Album Information</span>
-                </h3>
-                <div className="space-y-2 text-sm">
+              <div className="border-2 border-black dark:border-white bg-white dark:bg-gray-900 p-6 flex-1">
+                <div className="space-y-4 text-base">
                   <p className="text-black dark:text-white">
-                    <span className="font-semibold">Album:</span> {randomItem.album}
+                    <span className="font-semibold">{itemType === 'album' ? 'Album' : 'Album'}:</span> {randomItem.album}
                   </p>
                   <p className="text-black dark:text-white">
                     <span className="font-semibold">Artist:</span> {randomItem.albumArtist}
@@ -141,19 +208,26 @@ export default function RandomPage() {
                   <p className="text-black dark:text-white">
                     <span className="font-semibold">Release Date:</span> {randomItem.releaseDate}
                   </p>
-                  <p className="text-black dark:text-white">
-                    <span className="font-semibold">Track:</span> {randomItem.trackNumber} of {randomItem.totalTracks}
-                  </p>
+                  {itemType === 'song' && (
+                    <p className="text-black dark:text-white">
+                      <span className="font-semibold">Track:</span> {randomItem.trackNumber} of {randomItem.totalTracks}
+                    </p>
+                  )}
+                  {itemType === 'album' && (
+                    <p className="text-black dark:text-white">
+                      <span className="font-semibold">Total Tracks:</span> {randomItem.totalTracks}
+                    </p>
+                  )}
                 </div>
               </div>
 
               {/* Buttons */}
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <button 
                   className="w-full border-2 border-black dark:border-white bg-white dark:bg-gray-900 text-black dark:text-white px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                  onClick={() => navigate('/song-rating', { state: { item: randomItem } })}
+                  onClick={() => navigate(itemType === 'album' ? '/album-rating' : '/song-rating', { state: { item: randomItem } })}
                 >
-                  Rate This Song
+                  Rate This {itemType === 'album' ? 'Album' : 'Song'}
                 </button>
                 
                 <a
