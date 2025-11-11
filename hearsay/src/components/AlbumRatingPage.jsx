@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { useLocation, Link } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { spotifyApi, getAccessToken } from '../config/spotify';
+import Header from './Header';
 
 export default function AlbumRatingPage() {
   const location = useLocation();
@@ -64,45 +65,25 @@ export default function AlbumRatingPage() {
     return `${minutes}:${seconds.padStart(2, '0')}`;
   };
 
-  // Header component for consistency
-  const Header = () => (
-    <header className="border-b border-black">
-      <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-        <Link to="/" className="text-xl font-bold">LOGO</Link>
-        <nav className="flex-1 mx-8">
-          <ul className="flex justify-center space-x-8">
-            <li><Link to="/my-reviews" className="hover:underline">my reviews</Link></li>
-            <li><Link to="/discover" className="hover:underline">discover</Link></li>
-            <li><Link to="/random" className="hover:underline">random</Link></li>
-          </ul>
-        </nav>
-        <div className="flex items-center space-x-4">
-          <input type="search" placeholder="search" className="border border-black px-3 py-1" />
-          <button className="border border-black px-4 py-1 hover:bg-gray-100">login/register</button>
-        </div>
-      </div>
-    </header>
-  );
-
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white dark:bg-gray-900 pt-16">
       <Header />
       
       <main className="container mx-auto px-4 py-8">
         {loading ? (
           <div className="flex items-center justify-center h-64">
-            <div className="text-xl">Loading album details...</div>
+            <div className="text-xl dark:text-white">Loading album details...</div>
           </div>
         ) : (
           <div className="grid grid-cols-12 gap-6">
             {/* Cover Art */}
             <div className="col-span-4">
-              <div className="aspect-square border-2 border-black">
+              <div className="aspect-square border-2 border-black dark:border-white">
                 {album?.coverArt && (
                   <img src={album.coverArt} alt={album.title} className="w-full h-full object-cover" />
                 )}
               </div>
-              <div className="mt-4 space-y-2 text-sm">
+              <div className="mt-4 space-y-2 text-sm dark:text-white">
                 <p><span className="font-semibold">Release Date:</span> {albumDetails?.releaseDate}</p>
                 <p><span className="font-semibold">Label:</span> {albumDetails?.label}</p>
                 <p><span className="font-semibold">Total Tracks:</span> {albumDetails?.totalTracks}</p>
@@ -111,18 +92,18 @@ export default function AlbumRatingPage() {
 
             {/* Middle Column - Album Info and Review */}
             <div className="col-span-5">
-              <div className="border-2 border-black p-4 mb-4">
+              <div className="border-2 border-black dark:border-white p-4 mb-4 dark:text-white">
                 <h1 className="text-2xl font-bold">{album?.title}</h1>
                 <p className="text-gray-600">{album?.artist}</p>
               </div>
               
-              <div className="border-2 border-black p-4">
+              <div className="border-2 border-black dark:border-white p-4 dark:text-white">
                 <h2 className="font-semibold mb-4">Review</h2>
                 <textarea 
-                  className="w-full h-32 border border-black p-2 resize-none"
+                  className="w-full h-32 border-2 border-black dark:border-white dark:bg-gray-800 dark:text-white p-2 resize-none"
                   placeholder="Write your review here..."
                 />
-                <button className="w-full mt-4 border-2 border-black py-2 hover:bg-gray-100">
+                <button className="w-full mt-4 border-2 border-black dark:border-white py-2 hover:bg-gray-100 dark:hover:bg-gray-800 dark:text-white">
                   Submit Review
                 </button>
               </div>
@@ -130,7 +111,7 @@ export default function AlbumRatingPage() {
 
             {/* Track List */}
             <div className="col-span-3">
-              <div className="border-2 border-black p-4">
+              <div className="border-2 border-black dark:border-white p-4 dark:text-white">
                 <h2 className="font-semibold mb-4">Track List</h2>
                 <div className="space-y-2">
                   {tracks.map((track) => (
@@ -139,7 +120,7 @@ export default function AlbumRatingPage() {
                       <span className="flex-1">{track.name}</span>
                       <span className="text-gray-500">{formatDuration(track.duration)}</span>
                       <select 
-                        className="border border-black px-2 py-1"
+                        className="border border-black dark:border-white px-2 py-1"
                         value={trackRatings[track.id] || ''}
                         onChange={(e) => handleTrackRating(track.id, e.target.value)}
                       >
