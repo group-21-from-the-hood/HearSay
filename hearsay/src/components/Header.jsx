@@ -6,7 +6,7 @@ export default function Header() {
   const navigate = useNavigate();
 
   return (
-    <header className="border-b-2 border-black dark:border-white bg-white dark:bg-gray-900 fixed top-0 left-0 right-0 z-50">
+    <header className="fixed top-0 left-0 right-0 z-50 bg-white dark:bg-gray-900 border-b-2 border-black dark:border-white transition-colors">
       <div className="container mx-auto px-4 py-3 flex items-center justify-between">
         <Link to="/" className="text-xl font-bold hover:underline text-black dark:text-white">HearSay</Link>
         
@@ -21,7 +21,7 @@ export default function Header() {
         <div className="flex items-center space-x-4">
           <button
             onClick={toggleTheme}
-            className="p-2 border-2 border-black dark:border-white hover:bg-gray-100 dark:hover:bg-gray-800 bg-white dark:bg-gray-900"
+            className="p-2 border-2 border-black dark:border-white bg-white dark:bg-gray-900 text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
             aria-label="Toggle theme"
           >
             {theme === 'light' ? '🌙' : '☀️'}

@@ -1,24 +1,37 @@
 import { useState, useEffect } from 'react';
 import { spotifyApi, getAccessToken } from '../config/spotify';
-import Header from './Header';
 
 export default function DiscoverPage() {
   const [recommendations, setRecommendations] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  useEffect(() => {
+    const fetchRecommendations = async () => {
+      const token = await getAccessToken();
+      const response = await spotifyApi.get('/recommendations', { headers: { Authorization: `Bearer ${token}` } });
+      setRecommendations(response.data);
+      setLoading(false);
+    };
+    fetchRecommendations();
+  }, []);
+
   return (
-    <div className="min-h-screen bg-white pt-16">
-      <Header />
+    <main className="container mx-auto px-4 py-8">
+      <h1 className="text-2xl font-bold mb-6 text-black dark:text-white">Discover</h1>
       
-      <main className="container mx-auto px-4 py-8">
-        <h1 className="text-2xl font-bold mb-6">Discover</h1>
-        
-        <div className="border-2 border-black p-4">
+      <div className="border-2 border-black dark:border-white bg-white dark:bg-gray-900 p-4">
+        {loading ? (
+          <div className="text-center py-8 text-black dark:text-white">Loading recommendations...</div>
+        ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* Recommendations will be mapped here */}
+            {recommendations.map(item => (
+              <div key={item.id} className="border-2 border-black dark:border-white bg-white dark:bg-gray-900 p-4">
+                {/* Recommendation content */}
+              </div>
+            ))}
           </div>
-        </div>
-      </main>
-    </div>
+        )}
+      </div>
+    </main>
   );
 }

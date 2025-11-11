@@ -3,45 +3,36 @@ import { createContext, useContext, useState, useEffect } from 'react';
 const ThemeContext = createContext();
 
 export function ThemeProvider({ children }) {
-  // Start with light mode by default, ignore localStorage initially
-  const [theme, setTheme] = useState('light');
-  const [mounted, setMounted] = useState(false);
-
-  // Only load from localStorage after mount
-  useEffect(() => {
+  const [theme, setTheme] = useState(() => {
+    // Check localStorage first, default to light
     const saved = localStorage.getItem('theme');
-    if (saved && (saved === 'light' || saved === 'dark')) {
-      setTheme(saved);
-    }
-    setMounted(true);
-  }, []);
+    return saved || 'light';
+  });
 
-  // Update DOM when theme changes
   useEffect(() => {
-    if (!mounted) return;
-
     const root = document.documentElement;
     
-    // Force remove dark class
+    console.log('🎨 Current theme:', theme);
+    console.log('📋 HTML element before:', root.className);
+    
+    // Remove dark class
     root.classList.remove('dark');
     
-    // Only add dark class if theme is dark
+    // Add dark class only if theme is dark
     if (theme === 'dark') {
       root.classList.add('dark');
     }
     
+    console.log('📋 HTML element after:', root.className);
+    
     // Save to localStorage
     localStorage.setItem('theme', theme);
-    
-    // Force log for debugging
-    console.log('🎨 Theme updated:', theme);
-    console.log('📋 HTML classes:', root.className);
-  }, [theme, mounted]);
+  }, [theme]);
 
   const toggleTheme = () => {
     setTheme(prev => {
       const newTheme = prev === 'light' ? 'dark' : 'light';
-      console.log('🔄 Toggling:', prev, '→', newTheme);
+      console.log('🔄 Toggle:', prev, '→', newTheme);
       return newTheme;
     });
   };
