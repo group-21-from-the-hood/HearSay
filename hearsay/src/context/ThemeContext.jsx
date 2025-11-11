@@ -1,58 +1,62 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect } from 'react';
 
-const ThemeContext = createContext(null);
+const ThemeContext = createContext();
 
 export function ThemeProvider({ children }) {
-  const [theme, setTheme] = useState(() => {
-    try {
-      const stored = localStorage.getItem('hearsay:theme');
-      if (stored) return stored;
-      // Default to system preference if available
-      if (typeof window !== 'undefined' && window.matchMedia) {
-        return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-      }
-      return 'light';
-    } catch (e) {
-      return 'light';
-    }
-  });
+  // Start with light mode by default, ignore localStorage initially
+  const [theme, setTheme] = useState('light');
+  const [mounted, setMounted] = useState(false);
 
+  // Only load from localStorage after mount
   useEffect(() => {
-    try {
-      localStorage.setItem('hearsay:theme', theme);
-    } catch (e) {
-      // ignore storage errors in environments where localStorage isn't available
+    const saved = localStorage.getItem('theme');
+    if (saved && (saved === 'light' || saved === 'dark')) {
+      setTheme(saved);
     }
-  }, [theme]);
+    setMounted(true);
+  }, []);
 
-  // Apply the `dark` class to the document root when theme is 'dark'
+  // Update DOM when theme changes
   useEffect(() => {
-    try {
-      const root = document.documentElement;
-      if (theme === 'dark') {
-        root.classList.add('dark');
-      } else {
-        root.classList.remove('dark');
-      }
-    } catch (e) {
-      // ignore if document isn't available (SSR) or other errors
-    }
-  }, [theme]);
+    if (!mounted) return;
 
-  const toggle = () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'));
+    const root = document.documentElement;
+    
+    // Force remove dark class
+    root.classList.remove('dark');
+    
+    // Only add dark class if theme is dark
+    if (theme === 'dark') {
+      root.classList.add('dark');
+    }
+    
+    // Save to localStorage
+    localStorage.setItem('theme', theme);
+    
+    // Force log for debugging
+    console.log('🎨 Theme updated:', theme);
+    console.log('📋 HTML classes:', root.className);
+  }, [theme, mounted]);
+
+  const toggleTheme = () => {
+    setTheme(prev => {
+      const newTheme = prev === 'light' ? 'dark' : 'light';
+      console.log('🔄 Toggling:', prev, '→', newTheme);
+      return newTheme;
+    });
+  };
 
   return (
-    <ThemeContext.Provider value={{ theme, toggle }}>
+    <ThemeContext.Provider value={{ theme, toggleTheme }}>
       {children}
     </ThemeContext.Provider>
   );
 }
 
-// Safe hook: returns default values if provider isn't mounted to avoid runtime crashes
 export function useTheme() {
-  const ctx = useContext(ThemeContext);
-  if (ctx) return ctx;
-  return { theme: 'light', toggle: () => {} };
+  const context = useContext(ThemeContext);
+  if (!context) {
+    throw new Error('useTheme must be used within ThemeProvider');
+  }
+  return context;
 }
-
-export default ThemeContext;

@@ -1,4 +1,5 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { ThemeProvider } from './context/ThemeContext';
 import LandingPage from './components/LandingPage';
 import AlbumRatingPage from './components/AlbumRatingPage';
 import SongRatingPage from './components/SongRatingPage';
@@ -9,17 +10,19 @@ import AuthPage from './components/AuthPage';
 
 function App() {
   return (
-    <Router>
-      <Routes>
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/album-rating" element={<AlbumRatingPage />} />
-        <Route path="/song-rating" element={<SongRatingPage />} />
-        <Route path="/my-reviews" element={<MyReviewsPage />} />
-        <Route path="/discover" element={<DiscoverPage />} />
-        <Route path="/random" element={<RandomPage />} />
-        <Route path="/auth" element={<AuthPage />} />
-      </Routes>
-    </Router>
+    <ThemeProvider>
+      <Router>
+        <Routes>
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/album-rating" element={<AlbumRatingPage />} />
+          <Route path="/song-rating" element={<SongRatingPage />} />
+          <Route path="/my-reviews" element={<MyReviewsPage />} />
+          <Route path="/discover" element={<DiscoverPage />} />
+          <Route path="/random" element={<RandomPage />} />
+          <Route path="/auth" element={<AuthPage />} />
+        </Routes>
+      </Router>
+    </ThemeProvider>
   );
 }
 
