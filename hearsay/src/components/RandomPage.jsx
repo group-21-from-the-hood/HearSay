@@ -43,7 +43,9 @@ export default function RandomPage() {
   return (
     <main className="container mx-auto px-4 py-8">
       <div className="mb-12">
-        <h1 className="text-2xl font-bold mb-4 text-black dark:text-white">Random Song</h1>
+        <h1 className="text-2xl font-bold mb-4">
+          <span className="text-black dark:text-white">Random Song Generator</span>
+        </h1>
         <button 
           className="border-2 border-black dark:border-white bg-white dark:bg-gray-900 text-black dark:text-white px-6 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50 transition-colors"
           onClick={getRandomSong}
@@ -70,7 +72,9 @@ export default function RandomPage() {
               )}
             </div>
             <div className="flex-1">
-              <h2 className="text-3xl font-bold mb-2 text-black dark:text-white">{randomItem.title}</h2>
+              <h2 className="text-3xl font-bold mb-2">
+                <span className="text-black dark:text-white">{randomItem.title}</span>
+              </h2>
               <p className="text-xl mb-2 text-black dark:text-white">{randomItem.artist}</p>
               <p className="text-gray-600 dark:text-gray-400 mb-6">Album: {randomItem.album}</p>
               <button 

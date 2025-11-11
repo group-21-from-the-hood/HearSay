@@ -17,7 +17,9 @@ export default function DiscoverPage() {
 
   return (
     <main className="container mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold mb-6 text-black dark:text-white">Discover</h1>
+      <h1 className="text-2xl font-bold mb-6">
+        <span className="text-black dark:text-white">Discover</span>
+      </h1>
       
       <div className="border-2 border-black dark:border-white bg-white dark:bg-gray-900 p-4">
         {loading ? (

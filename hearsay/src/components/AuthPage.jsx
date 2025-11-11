@@ -83,8 +83,8 @@ export default function AuthPage() {
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-md mx-auto">
           <div className="border-2 border-black dark:border-white bg-white dark:bg-gray-900 p-6">
-            <h1 className="text-2xl font-bold mb-6 text-black dark:text-white">
-              {mode === 'login' ? 'Login' : 'Register'}
+            <h1 className="text-2xl font-bold mb-6">
+              <span className="text-black dark:text-white">{mode === 'login' ? 'Login' : 'Register'}</span>
             </h1>
             
             {error && (
