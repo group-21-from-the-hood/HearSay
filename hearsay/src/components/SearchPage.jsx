@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import { spotifyApi, getAccessToken } from '../config/spotify';
+import { sanitizeSearchQuery } from '../utils/sanitize';
 
 export default function SearchPage() {
   const [searchParams] = useSearchParams();
   const query = searchParams.get('q');
   const navigate = useNavigate();
+  const location = useLocation();
   
   const [results, setResults] = useState({
     artists: [],
@@ -19,64 +21,72 @@ export default function SearchPage() {
     albums: false,
     tracks: false
   });
+  const [searchQuery, setSearchQuery] = useState(query || '');
 
   useEffect(() => {
-    const performSearch = async () => {
-      if (!query) {
-        setLoading(false);
-        return;
-      }
+    const searchParams = new URLSearchParams(location.search);
+    const query = searchParams.get('q');
+    
+    if (query) {
+      const sanitizedQuery = sanitizeSearchQuery(query);
+      setSearchQuery(sanitizedQuery);
+      performSearch(sanitizedQuery);
+    }
+  }, [location.search]);
 
-      try {
-        setLoading(true);
-        setError(null);
-        
-        const token = await getAccessToken();
-        spotifyApi.setAccessToken(token);
+  const performSearch = async (query) => {
+    const sanitizedQuery = sanitizeSearchQuery(query);
+    
+    if (!sanitizedQuery.trim()) {
+      setError('Please enter a search term');
+      return;
+    }
 
-        const response = await spotifyApi.search(query, ['artist', 'album', 'track'], {
-          limit: 50,
-          market: 'US'
-        });
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const token = await getAccessToken();
+      spotifyApi.setAccessToken(token);
 
-        setResults({
-          artists: response.body.artists?.items.map(artist => ({
-            id: artist.id,
-            name: artist.name,
-            image: artist.images?.[0]?.url,
-            followers: artist.followers?.total,
-            spotifyUrl: artist.external_urls.spotify
-          })) || [],
-          albums: response.body.albums?.items.map(album => ({
-            id: album.id,
-            title: album.name,
-            artist: album.artists[0]?.name,
-            coverArt: album.images?.[0]?.url,
-            releaseDate: album.release_date,
-            spotifyUrl: album.external_urls.spotify
-          })) || [],
-          tracks: response.body.tracks?.items.map(track => ({
-            id: track.id,
-            title: track.name,
-            artist: track.artists[0]?.name,
-            album: track.album?.name,
-            coverArt: track.album?.images?.[0]?.url,
-            duration: track.duration_ms,
-            spotifyUrl: track.external_urls.spotify
-          })) || []
-        });
-      } catch (error) {
-        console.error('Search error:', error);
-        setError('An error occurred while searching. Please try again.');
-      } finally {
-        setLoading(false);
-      }
-    };
+      const response = await spotifyApi.search(sanitizedQuery, ['artist', 'album', 'track'], {
+        limit: 50,
+        market: 'US'
+      });
 
-    performSearch();
-    // Reset showAll when query changes
-    setShowAll({ artists: false, albums: false, tracks: false });
-  }, [query]);
+      setResults({
+        artists: response.body.artists?.items.map(artist => ({
+          id: artist.id,
+          name: artist.name,
+          image: artist.images?.[0]?.url,
+          followers: artist.followers?.total,
+          spotifyUrl: artist.external_urls.spotify
+        })) || [],
+        albums: response.body.albums?.items.map(album => ({
+          id: album.id,
+          title: album.name,
+          artist: album.artists[0]?.name,
+          coverArt: album.images?.[0]?.url,
+          releaseDate: album.release_date,
+          spotifyUrl: album.external_urls.spotify
+        })) || [],
+        tracks: response.body.tracks?.items.map(track => ({
+          id: track.id,
+          title: track.name,
+          artist: track.artists[0]?.name,
+          album: track.album?.name,
+          coverArt: track.album?.images?.[0]?.url,
+          duration: track.duration_ms,
+          spotifyUrl: track.external_urls.spotify
+        })) || []
+      });
+    } catch (error) {
+      console.error('Search error:', error);
+      setError('An error occurred while searching. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const formatDuration = (ms) => {
     const minutes = Math.floor(ms / 60000);
