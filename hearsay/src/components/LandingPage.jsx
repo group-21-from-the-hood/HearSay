@@ -110,7 +110,7 @@ export default function LandingPage() {
                   <div
                     key={album.id}
                     className="flex flex-col cursor-pointer group"
-                    onClick={() => navigate('/album-rating', { state: { item: album } })}
+                    onClick={() => navigate(`/album/${album.id}`)}
                   >
                     <div className="aspect-square mb-2 border-2 border-black dark:border-white bg-white">
                       {album.coverArt ? (
@@ -154,7 +154,7 @@ export default function LandingPage() {
                   <div
                     key={song.id}
                     className="flex flex-col cursor-pointer group"
-                    onClick={() => navigate('/song-rating', { state: { item: song } })}
+                    onClick={() => navigate(`/song/${song.id}`)}
                   >
                     <div className="aspect-square mb-2 border-2 border-black dark:border-white bg-white">
                       {song.coverArt ? (

@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { spotifyApi, getAccessToken } from '../config/spotify';
 import { useTheme } from '../context/ThemeContext';
 import HeadphoneRating from './HeadphoneRating';
 
 export default function AlbumRatingPage() {
-  const location = useLocation();
-  const album = location.state?.item;
+  const { albumId } = useParams();
   const { theme } = useTheme();
+  const [album, setAlbum] = useState(null);
   const [albumDetails, setAlbumDetails] = useState(null);
   const [tracks, setTracks] = useState([]);
   const [trackRatings, setTrackRatings] = useState({});
@@ -16,7 +16,7 @@ export default function AlbumRatingPage() {
 
   useEffect(() => {
     const fetchAlbumData = async () => {
-      if (!album?.id) return;
+      if (!albumId) return;
 
       try {
         setLoading(true);
@@ -25,17 +25,24 @@ export default function AlbumRatingPage() {
 
         // Fetch album details and tracks in parallel
         const [albumResponse, tracksResponse] = await Promise.all([
-          spotifyApi.getAlbum(album.id),
-          spotifyApi.getAlbumTracks(album.id)
+          spotifyApi.getAlbum(albumId),
+          spotifyApi.getAlbumTracks(albumId)
         ]);
 
-        setAlbumDetails({
-          ...album,
+        const albumData = {
+          id: albumResponse.body.id,
+          title: albumResponse.body.name,
+          artist: albumResponse.body.artists[0]?.name,
+          coverArt: albumResponse.body.images?.[0]?.url,
           releaseDate: albumResponse.body.release_date,
           totalTracks: albumResponse.body.total_tracks,
           label: albumResponse.body.label,
-          popularity: albumResponse.body.popularity
-        });
+          popularity: albumResponse.body.popularity,
+          spotifyUrl: albumResponse.body.external_urls.spotify
+        };
+
+        setAlbum(albumData);
+        setAlbumDetails(albumData);
 
         setTracks(tracksResponse.body.items.map(track => ({
           id: track.id,
@@ -52,7 +59,7 @@ export default function AlbumRatingPage() {
     };
 
     fetchAlbumData();
-  }, [album?.id]);
+  }, [albumId]);
 
   const handleTrackRating = (trackId, rating) => {
     setTrackRatings(prev => ({

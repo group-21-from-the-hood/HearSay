@@ -172,7 +172,7 @@ export default function RandomPage() {
       )}
       
       {randomItem && (
-        <div ref={resultsRef} className="max-w-5xl mx-auto">
+        <div className="max-w-5xl mx-auto">
           <div className="grid grid-cols-2 gap-8">
             {/* Left: Cover Art */}
             <div className="border-2 border-black dark:border-white flex items-start">
@@ -236,7 +236,7 @@ export default function RandomPage() {
               <div className="space-y-3">
                 <button 
                   className="w-full border-2 border-black dark:border-white bg-white dark:bg-gray-900 text-black dark:text-white px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                  onClick={() => navigate(itemType === 'album' ? '/album-rating' : '/song-rating', { state: { item: randomItem } })}
+                  onClick={() => navigate(itemType === 'album' ? `/album/${randomItem.id}` : `/song/${randomItem.id}`)}
                 >
                   Rate This {itemType === 'album' ? 'Album' : 'Song'}
                 </button>

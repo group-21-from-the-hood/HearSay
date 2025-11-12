@@ -141,7 +141,7 @@ export default function SearchPage() {
               <div
                 key={artist.id}
                 className="border-2 border-black dark:border-white bg-white dark:bg-gray-900 p-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                onClick={() => navigate(`/artist/${artist.id}`, { state: { artist } })}
+                onClick={() => navigate(`/artist/${artist.id}`)}
               >
                 <div className="aspect-square mb-2">
                   {artist.image ? (
@@ -185,7 +185,7 @@ export default function SearchPage() {
               <div
                 key={album.id}
                 className="cursor-pointer"
-                onClick={() => navigate('/album-rating', { state: { item: album } })}
+                onClick={() => navigate(`/album/${album.id}`)}
               >
                 <div className="aspect-square mb-2 border-2 border-black dark:border-white">
                   {album.coverArt ? (
@@ -229,7 +229,7 @@ export default function SearchPage() {
                 className={`flex items-center gap-4 p-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors ${
                   index !== array.length - 1 ? 'border-b-2 border-black dark:border-white' : ''
                 }`}
-                onClick={() => navigate('/song-rating', { state: { item: track } })}
+                onClick={() => navigate(`/song/${track.id}`)}
               >
                 <div className="w-16 h-16 flex-shrink-0 border-2 border-black dark:border-white">
                   {track.coverArt ? (

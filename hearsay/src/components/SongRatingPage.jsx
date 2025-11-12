@@ -1,33 +1,40 @@
 import { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { spotifyApi, getAccessToken } from '../config/spotify';
 import { useTheme } from '../context/ThemeContext';
 import HeadphoneRating from './HeadphoneRating';
 
 export default function SongRatingPage() {
-  const location = useLocation();
-  const song = location.state?.item;
+  const { songId } = useParams();
   const { theme } = useTheme();
+  const [song, setSong] = useState(null);
   const [songDetails, setSongDetails] = useState(null);
   const [rating, setRating] = useState('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchSongData = async () => {
-      if (!song?.id) return;
+      if (!songId) return;
 
       try {
         setLoading(true);
         const token = await getAccessToken();
         spotifyApi.setAccessToken(token);
 
-        const trackResponse = await spotifyApi.getTrack(song.id);
+        const trackResponse = await spotifyApi.getTrack(songId);
         
-        setSongDetails({
-          ...song,
+        const songData = {
+          id: trackResponse.body.id,
+          title: trackResponse.body.name,
+          artist: trackResponse.body.artists[0]?.name,
+          coverArt: trackResponse.body.album?.images?.[0]?.url,
           duration: trackResponse.body.duration_ms,
-          album: trackResponse.body.album.name
-        });
+          album: trackResponse.body.album.name,
+          spotifyUrl: trackResponse.body.external_urls.spotify
+        };
+
+        setSong(songData);
+        setSongDetails(songData);
       } catch (error) {
         console.error('Error fetching song data:', error);
       } finally {
@@ -36,7 +43,7 @@ export default function SongRatingPage() {
     };
 
     fetchSongData();
-  }, [song?.id]);
+  }, [songId]);
 
   const formatDuration = (ms) => {
     const minutes = Math.floor(ms / 60000);
