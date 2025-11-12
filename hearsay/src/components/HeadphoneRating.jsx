@@ -93,7 +93,7 @@ export default function HeadphoneRating({ value = 0, onChange, size = 'large' })
   };
 
   return (
-    <div className="flex items-center justify-between gap-3">
+    <div className="flex items-center gap-3 w-full">
       <div className="flex gap-2" onMouseLeave={handleMouseLeave}>
         {[0, 1, 2, 3, 4].map((index) => {
           const rating = index + 1;

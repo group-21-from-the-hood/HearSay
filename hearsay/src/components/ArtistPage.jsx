@@ -154,8 +154,8 @@ export default function ArtistPage() {
     <main className="container mx-auto px-4 py-8">
       {/* Artist Header */}
       <div className="mb-12">
-        <div className="flex items-start gap-8">
-          <div className="w-64 h-64 flex-shrink-0 border-2 border-black dark:border-white">
+        <div className="flex flex-col md:flex-row items-start gap-8">
+          <div className="w-full md:w-64 aspect-square md:h-64 flex-shrink-0 border-2 border-black dark:border-white">
             {artistDetails?.image ? (
               <img 
                 src={artistDetails.image} 
@@ -169,7 +169,7 @@ export default function ArtistPage() {
             )}
           </div>
           <div className="flex-1">
-            <h1 className="text-4xl font-bold mb-4">
+            <h1 className="text-2xl md:text-4xl font-bold mb-4">
               <span className="text-black dark:text-white">{artistDetails?.name}</span>
             </h1>
             <div className="space-y-3 text-base text-black dark:text-white">
@@ -204,7 +204,7 @@ export default function ArtistPage() {
           <span className="text-black dark:text-white">Albums ({albums.length})</span>
         </h2>
         {albums.length > 0 ? (
-          <div className="grid grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
             {albums.map(album => (
               <div
                 key={album.id}
@@ -244,7 +244,7 @@ export default function ArtistPage() {
           <span className="text-black dark:text-white">Singles ({singles.length})</span>
         </h2>
         {singles.length > 0 ? (
-          <div className="grid grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
             {singles.map(single => (
               <div
                 key={single.id}

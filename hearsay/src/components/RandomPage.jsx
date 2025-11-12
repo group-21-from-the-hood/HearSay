@@ -147,7 +147,7 @@ export default function RandomPage() {
         <h1 className="text-2xl font-bold mb-4">
           <span className="text-black dark:text-white">Random Generator</span>
         </h1>
-        <div className="flex gap-4">
+        <div className="flex flex-wrap gap-4">
           <button 
             className="border-2 border-black dark:border-white bg-white dark:bg-gray-900 text-black dark:text-white px-6 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50 transition-colors"
             onClick={getRandomSong}
@@ -173,7 +173,7 @@ export default function RandomPage() {
       
       {randomItem && (
         <div className="max-w-5xl mx-auto">
-          <div className="grid grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {/* Left: Cover Art */}
             <div className="border-2 border-black dark:border-white flex items-start">
               {randomItem.coverArt ? (

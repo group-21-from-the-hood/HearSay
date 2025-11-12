@@ -81,9 +81,9 @@ export default function AlbumRatingPage() {
           <div className="text-xl text-black dark:text-white">Loading album details...</div>
         </div>
       ) : (
-        <div className="grid grid-cols-12 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Cover Art and Info */}
-          <div className="col-span-4">
+          <div className="lg:col-span-4">
             <div className="aspect-square border-2 border-black dark:border-white bg-white dark:bg-gray-900 mb-4">
               {album?.coverArt && (
                 <img src={album.coverArt} alt={album.title} className="w-full h-full object-cover" />
@@ -101,7 +101,7 @@ export default function AlbumRatingPage() {
           </div>
 
           {/* Middle Column - Player and Review */}
-          <div className="col-span-5">
+          <div className="lg:col-span-5">
             {/* Embedded Player */}
             <div className="border-2 border-black dark:border-white overflow-hidden mb-4" style={{ backgroundColor: theme === 'dark' ? '#121212' : '#ffffff' }}>
               <iframe
@@ -134,7 +134,7 @@ export default function AlbumRatingPage() {
           </div>
 
           {/* Track List */}
-          <div className="col-span-3">
+          <div className="lg:col-span-3">
             <div className="border-2 border-black dark:border-white bg-white dark:bg-gray-900 text-black dark:text-white flex flex-col" style={{ maxHeight: 'calc(100vh - 8rem)' }}>
               <h2 className="font-semibold p-4 pb-2 border-b-2 border-black dark:border-white">
                 <span className="text-black dark:text-white">Track List</span>
@@ -170,7 +170,7 @@ export default function AlbumRatingPage() {
           <span className="text-black dark:text-white">Related Albums</span>
         </h2>
         <div className="border-2 border-black dark:border-white p-4 bg-white dark:bg-gray-900">
-          <div className="grid grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
             {relatedAlbums.map(related => (
               <div key={related.id} className="cursor-pointer">
                 <div className="aspect-square">

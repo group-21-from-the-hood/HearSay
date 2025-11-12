@@ -9,7 +9,7 @@ export default function SongRatingPage() {
   const { theme } = useTheme();
   const [song, setSong] = useState(null);
   const [songDetails, setSongDetails] = useState(null);
-  const [rating, setRating] = useState('');
+  const [rating, setRating] = useState(0); // Changed from '' to 0
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -58,9 +58,9 @@ export default function SongRatingPage() {
           <div className="text-xl text-black dark:text-white">Loading song details...</div>
         </div>
       ) : (
-        <div className="grid grid-cols-12 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left: Cover Art and Info */}
-          <div className="col-span-4">
+          <div className="lg:col-span-4">
             <div className="aspect-square border-2 border-black dark:border-white bg-white dark:bg-gray-900 mb-4">
               {song?.coverArt && (
                 <img src={song.coverArt} alt={song.title} className="w-full h-full object-cover" />
@@ -77,7 +77,7 @@ export default function SongRatingPage() {
           </div>
 
           {/* Middle Column - Player and Review */}
-          <div className="col-span-5">
+          <div className="lg:col-span-5">
             {/* Embedded Player */}
             <div className="border-2 border-black dark:border-white overflow-hidden mb-4" style={{ backgroundColor: theme === 'dark' ? '#121212' : '#ffffff' }}>
               <iframe
@@ -110,7 +110,7 @@ export default function SongRatingPage() {
           </div>
 
           {/* Right: Rating */}
-          <div className="col-span-3">
+          <div className="lg:col-span-3">
             <div className="border-2 border-black dark:border-white p-4 bg-white dark:bg-gray-900 text-black dark:text-white">
               <h2 className="font-semibold mb-4">
                 <span className="text-black dark:text-white">Rating</span>
@@ -119,7 +119,7 @@ export default function SongRatingPage() {
                 <HeadphoneRating
                   value={rating}
                   onChange={setRating}
-                  size="large"
+                  size="medium"
                 />
               </div>
             </div>
