@@ -3,6 +3,9 @@ import { useParams } from 'react-router-dom';
 import { spotifyApi, getAccessToken } from '../config/spotify';
 import { useTheme } from '../context/ThemeContext';
 import HeadphoneRating from './HeadphoneRating';
+import { sanitizeInput, sanitizeRating } from '../utils/sanitize';
+
+const ALBUM_REVIEW_WORD_LIMIT = 800;
 
 export default function AlbumRatingPage() {
   const { albumId } = useParams();
@@ -13,6 +16,11 @@ export default function AlbumRatingPage() {
   const [trackRatings, setTrackRatings] = useState({});
   const [relatedAlbums, setRelatedAlbums] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [review, setReview] = useState('');
+
+  // Calculate word count
+  const wordCount = review.trim().split(/\s+/).filter(word => word.length > 0).length;
+  const remainingWords = ALBUM_REVIEW_WORD_LIMIT - wordCount;
 
   useEffect(() => {
     const fetchAlbumData = async () => {
@@ -62,9 +70,10 @@ export default function AlbumRatingPage() {
   }, [albumId]);
 
   const handleTrackRating = (trackId, rating) => {
+    const sanitizedRating = sanitizeRating(rating);
     setTrackRatings(prev => ({
       ...prev,
-      [trackId]: rating
+      [trackId]: sanitizedRating
     }));
   };
 
@@ -72,6 +81,46 @@ export default function AlbumRatingPage() {
     const minutes = Math.floor(ms / 60000);
     const seconds = ((ms % 60000) / 1000).toFixed(0);
     return `${minutes}:${seconds.padStart(2, '0')}`;
+  };
+
+  const handleSubmitRatings = () => {
+    // Sanitize all ratings before submission
+    const sanitizedRatings = Object.entries(trackRatings).reduce((acc, [trackId, rating]) => {
+      acc[trackId] = sanitizeRating(rating);
+      return acc;
+    }, {});
+    
+    console.log('Album ratings:', sanitizedRatings);
+    alert('Ratings submitted! (This will save to database in the future)');
+  };
+
+  const handleSubmitReview = () => {
+    const sanitizedReview = sanitizeInput(review);
+    
+    console.log('Album review:', {
+      albumId: album.id,
+      albumTitle: album.title,
+      review: sanitizedReview,
+      wordCount: wordCount
+    });
+    
+    if (!sanitizedReview.trim()) {
+      alert('Please write a review before submitting!');
+    } else if (wordCount > ALBUM_REVIEW_WORD_LIMIT) {
+      alert(`Review exceeds ${ALBUM_REVIEW_WORD_LIMIT} word limit. Please shorten your review.`);
+    } else {
+      alert('Review submitted! (This will save to database in the future)');
+    }
+  };
+
+  const handleReviewChange = (e) => {
+    const newText = e.target.value;
+    const newWordCount = newText.trim().split(/\s+/).filter(word => word.length > 0).length;
+    
+    // Only update if within word limit
+    if (newWordCount <= ALBUM_REVIEW_WORD_LIMIT || newText.length < review.length) {
+      setReview(newText);
+    }
   };
 
   return (
@@ -123,11 +172,22 @@ export default function AlbumRatingPage() {
               <h2 className="font-semibold mb-4">
                 <span className="text-black dark:text-white">Review</span>
               </h2>
-              <textarea 
-                className="w-full h-32 border-2 border-black dark:border-white bg-white dark:bg-gray-800 text-black dark:text-white p-2 resize-none"
-                placeholder="Write your review here..."
-              />
-              <button className="w-full mt-4 border-2 border-black dark:border-white py-2 hover:bg-gray-100 dark:hover:bg-gray-800 bg-white dark:bg-gray-900 text-black dark:text-white">
+              <div className="relative">
+                <textarea 
+                  value={review}
+                  onChange={handleReviewChange}
+                  className="w-full h-32 border-2 border-black dark:border-white bg-white dark:bg-gray-800 text-black dark:text-white p-2 pb-6 resize-none"
+                  placeholder="Write your review here..."
+                  maxLength={10000}
+                />
+                <div className="absolute bottom-2 right-2 text-xs italic text-gray-500 dark:text-gray-400">
+                  {remainingWords} {remainingWords === 1 ? 'word' : 'words'} remaining
+                </div>
+              </div>
+              <button 
+                onClick={handleSubmitReview}
+                className="w-full mt-4 border-2 border-black dark:border-white py-2 hover:bg-gray-100 dark:hover:bg-gray-800 bg-white dark:bg-gray-900 text-black dark:text-white transition-colors"
+              >
                 Submit Review
               </button>
             </div>
@@ -158,6 +218,15 @@ export default function AlbumRatingPage() {
                     </div>
                   ))}
                 </div>
+              </div>
+              {/* Submit Rating Button */}
+              <div className="p-4 border-t-2 border-black dark:border-white">
+                <button 
+                  onClick={handleSubmitRatings}
+                  className="w-full border-2 border-black dark:border-white py-2 hover:bg-gray-100 dark:hover:bg-gray-800 bg-white dark:bg-gray-900 text-black dark:text-white transition-colors"
+                >
+                  Submit Ratings
+                </button>
               </div>
             </div>
           </div>

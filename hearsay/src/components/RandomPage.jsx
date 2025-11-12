@@ -22,120 +22,98 @@ export default function RandomPage() {
     }
   }, [randomItem]);
 
-  const getRandomSong = async () => {
+  const fetchRandomMusic = async (type) => {
     try {
-      setRandomItem(null);
       setLoading(true);
       setError(null);
-      setItemType('song');
-      
       const token = await getAccessToken();
       spotifyApi.setAccessToken(token);
 
-      const randomChars = 'abcdefghijklmnopqrstuvwxyz';
-      let track = null;
-      let attempts = 0;
-      const maxAttempts = 10;
-
-      while (!track && attempts < maxAttempts) {
-        attempts++;
-        const randomChar = randomChars[Math.floor(Math.random() * randomChars.length)];
-        const randomOffset = Math.floor(Math.random() * 100);
-
-        try {
-          const response = await spotifyApi.searchTracks(`${randomChar}*`, {
-            limit: 1,
-            offset: randomOffset,
-            market: 'US'
-          });
-
-          if (response.body.tracks.items.length > 0) {
-            track = response.body.tracks.items[0];
-            break;
-          }
-        } catch (searchError) {
-          console.warn(`Attempt ${attempts} failed:`, searchError);
+      if (type === 'album') {
+        const response = await spotifyApi.getNewReleases({ 
+          limit: 50,
+          country: 'US' 
+        });
+        
+        // Filter out single-track albums
+        const multiTrackAlbums = response.body.albums.items.filter(
+          album => album.total_tracks > 1
+        );
+        
+        if (multiTrackAlbums.length === 0) {
+          setError('No multi-track albums found. Please try again.');
+          setLoading(false);
+          return;
         }
-      }
-
-      if (track) {
+        
+        const randomAlbum = multiTrackAlbums[Math.floor(Math.random() * multiTrackAlbums.length)];
+        
         setRandomItem({
-          id: track.id,
-          title: track.name,
-          artist: track.artists[0].name,
-          coverArt: track.album?.images?.[0]?.url,
-          album: track.album.name,
-          albumArtist: track.album.artists[0].name,
-          releaseDate: track.album.release_date,
-          trackNumber: track.track_number,
-          totalTracks: track.album.total_tracks,
-          spotifyUrl: track.external_urls.spotify
+          id: randomAlbum.id,
+          title: randomAlbum.name,
+          artist: randomAlbum.artists[0]?.name,
+          albumArtist: randomAlbum.artists[0]?.name,
+          coverArt: randomAlbum.images?.[0]?.url,
+          releaseDate: randomAlbum.release_date,
+          totalTracks: randomAlbum.total_tracks,
+          spotifyUrl: randomAlbum.external_urls.spotify
         });
       } else {
-        setError('Unable to find a random song. Please try again.');
-      }
-    } catch (error) {
-      console.error('Error fetching random song:', error);
-      setError('An error occurred while fetching a random song. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
+        setRandomItem(null);
+        setLoading(true);
+        setError(null);
+        setItemType('song');
+        
+        const token = await getAccessToken();
+        spotifyApi.setAccessToken(token);
 
-  const getRandomAlbum = async () => {
-    try {
-      setRandomItem(null);
-      setLoading(true);
-      setError(null);
-      setItemType('album');
-      
-      const token = await getAccessToken();
-      spotifyApi.setAccessToken(token);
+        const randomChars = 'abcdefghijklmnopqrstuvwxyz';
+        let track = null;
+        let attempts = 0;
+        const maxAttempts = 10;
 
-      const randomChars = 'abcdefghijklmnopqrstuvwxyz';
-      let album = null;
-      let attempts = 0;
-      const maxAttempts = 10;
+        while (!track && attempts < maxAttempts) {
+          attempts++;
+          const randomChar = randomChars[Math.floor(Math.random() * randomChars.length)];
+          const randomOffset = Math.floor(Math.random() * 100);
 
-      while (!album && attempts < maxAttempts) {
-        attempts++;
-        const randomChar = randomChars[Math.floor(Math.random() * randomChars.length)];
-        const randomOffset = Math.floor(Math.random() * 100);
+          try {
+            const response = await spotifyApi.searchTracks(`${randomChar}*`, {
+              limit: 1,
+              offset: randomOffset,
+              market: 'US'
+            });
 
-        try {
-          const response = await spotifyApi.searchAlbums(`${randomChar}*`, {
-            limit: 1,
-            offset: randomOffset,
-            market: 'US'
-          });
-
-          if (response.body.albums.items.length > 0) {
-            album = response.body.albums.items[0];
-            break;
+            if (response.body.tracks.items.length > 0) {
+              track = response.body.tracks.items[0];
+              break;
+            }
+          } catch (searchError) {
+            console.warn(`Attempt ${attempts} failed:`, searchError);
           }
-        } catch (searchError) {
-          console.warn(`Attempt ${attempts} failed:`, searchError);
         }
-      }
 
-      if (album) {
-        setRandomItem({
-          id: album.id,
-          title: album.name,
-          artist: album.artists[0].name,
-          coverArt: album.images?.[0]?.url,
-          album: album.name,
-          albumArtist: album.artists[0].name,
-          releaseDate: album.release_date,
-          totalTracks: album.total_tracks,
-          spotifyUrl: album.external_urls.spotify
-        });
-      } else {
-        setError('Unable to find a random album. Please try again.');
-      }
+        if (track) {
+          setRandomItem({
+            id: track.id,
+            title: track.name,
+            artist: track.artists[0].name,
+            coverArt: track.album?.images?.[0]?.url,
+            album: track.album.name,
+            albumArtist: track.album.artists[0].name,
+            releaseDate: track.album.release_date,
+            trackNumber: track.track_number,
+            totalTracks: track.album.total_tracks,
+            spotifyUrl: track.external_urls.spotify
+          });
+        } else {
+          setError('Unable to find a random song. Please try again.');
+        }
+      }      
+      setItemType(type);
     } catch (error) {
-      console.error('Error fetching random album:', error);
-      setError('An error occurred while fetching a random album. Please try again.');
+      console.error('Error fetching random music:', error);
+      setError('Failed to fetch random music. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -150,14 +128,14 @@ export default function RandomPage() {
         <div className="flex flex-wrap gap-4">
           <button 
             className="border-2 border-black dark:border-white bg-white dark:bg-gray-900 text-black dark:text-white px-6 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50 transition-colors"
-            onClick={getRandomSong}
+            onClick={() => fetchRandomMusic('song')}
             disabled={loading}
           >
             {loading && itemType === 'song' ? 'Loading...' : 'Random Song'}
           </button>
           <button 
             className="border-2 border-black dark:border-white bg-white dark:bg-gray-900 text-black dark:text-white px-6 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50 transition-colors"
-            onClick={getRandomAlbum}
+            onClick={() => fetchRandomMusic('album')}
             disabled={loading}
           >
             {loading && itemType === 'album' ? 'Loading...' : 'Random Album'}

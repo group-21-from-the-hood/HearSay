@@ -1,6 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import { useState } from 'react';
+import { sanitizeSearchQuery } from '../utils/sanitize';
 
 export default function Header() {
   const { theme, toggleTheme } = useTheme();
@@ -10,8 +11,10 @@ export default function Header() {
 
   const handleSearch = (e) => {
     e.preventDefault();
-    if (searchQuery.trim()) {
-      navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+    const sanitizedQuery = sanitizeSearchQuery(searchQuery.trim());
+    
+    if (sanitizedQuery) {
+      navigate(`/search?q=${encodeURIComponent(sanitizedQuery)}`);
       setSearchQuery('');
       setMobileMenuOpen(false);
     }
@@ -42,6 +45,7 @@ export default function Header() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="h-full border-2 border-black dark:border-white bg-white dark:bg-gray-900 text-black dark:text-white px-3 placeholder-gray-500 dark:placeholder-gray-400"
+                maxLength={200}
               />
             </form>
             
@@ -97,6 +101,7 @@ export default function Header() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full h-10 border-2 border-black dark:border-white bg-white dark:bg-gray-900 text-black dark:text-white px-3 placeholder-gray-500 dark:placeholder-gray-400"
+                maxLength={200}
               />
             </form>
             
