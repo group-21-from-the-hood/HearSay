@@ -1,12 +1,12 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 
 export default function HeadphoneRating({ value = 0, onChange, size = 'large' }) {
   const [hoverValue, setHoverValue] = useState(null);
-  const [showTooltip, setShowTooltip] = useState(false);
-  const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
-  const hoverTimeoutRef = useRef(null);
   
-  const displayValue = hoverValue !== null ? hoverValue : value;
+  // If a rating is selected (value > 0), don't show hover preview
+  // If no rating selected (value === 0), show hover preview
+  const headphoneDisplayValue = value > 0 ? value : (hoverValue !== null ? hoverValue : value);
+  const boxDisplayValue = value > 0 ? value : (hoverValue !== null ? hoverValue : value);
   
   const sizeClasses = {
     small: 'w-5 h-5',
@@ -14,65 +14,42 @@ export default function HeadphoneRating({ value = 0, onChange, size = 'large' })
     large: 'w-12 h-12'
   };
 
+  const boxSizeClasses = {
+    small: 'text-xs px-2 py-1 min-w-[2.5rem]',
+    medium: 'text-sm px-3 py-1 min-w-[3rem]',
+    large: 'text-base px-4 py-2 min-w-[3.5rem]'
+  };
+
+  // Determine box styling based on whether a rating has been selected
+  const boxColorClasses = value > 0
+    ? 'bg-white dark:bg-gray-900 text-black dark:text-white'
+    : 'bg-gray-300 dark:bg-gray-700 text-gray-600 dark:text-gray-400';
+
   const handleClick = (rating) => {
     onChange?.(rating);
-    // Hide tooltip immediately after clicking
-    setShowTooltip(false);
-    // Clear any pending timeout
-    if (hoverTimeoutRef.current) {
-      clearTimeout(hoverTimeoutRef.current);
-      hoverTimeoutRef.current = null;
-    }
   };
 
   const handleMouseMove = (index, event) => {
-    const rect = event.currentTarget.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const isLeftHalf = x < rect.width / 2;
-    const newValue = index + (isLeftHalf ? 0.5 : 1);
-    setHoverValue(newValue);
-    
-    // Update tooltip position
-    setTooltipPosition({
-      x: event.clientX,
-      y: event.clientY
-    });
-
-    // Clear existing timeout
-    if (hoverTimeoutRef.current) {
-      clearTimeout(hoverTimeoutRef.current);
+    // Only allow hover preview if no rating has been selected yet
+    if (value === 0) {
+      const rect = event.currentTarget.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const isLeftHalf = x < rect.width / 2;
+      const newValue = index + (isLeftHalf ? 0.5 : 1);
+      setHoverValue(newValue);
     }
-
-    // Set new timeout to show tooltip after 500ms
-    hoverTimeoutRef.current = setTimeout(() => {
-      setShowTooltip(true);
-    }, 500);
   };
 
   const handleMouseLeave = () => {
-    setHoverValue(null);
-    // Hide tooltip immediately when mouse leaves
-    setShowTooltip(false);
-    
-    // Clear timeout when mouse leaves
-    if (hoverTimeoutRef.current) {
-      clearTimeout(hoverTimeoutRef.current);
-      hoverTimeoutRef.current = null;
+    // Only clear hover if no rating is selected
+    if (value === 0) {
+      setHoverValue(null);
     }
   };
 
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (hoverTimeoutRef.current) {
-        clearTimeout(hoverTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  const HeadphoneIcon = ({ rating, index }) => {
-    const isFull = displayValue >= rating;
-    const isHalf = displayValue === rating - 0.5;
+  const HeadphoneIcon = ({ rating }) => {
+    const isFull = headphoneDisplayValue >= rating;
+    const isHalf = headphoneDisplayValue === rating - 0.5;
 
     return (
       <svg
@@ -116,17 +93,16 @@ export default function HeadphoneRating({ value = 0, onChange, size = 'large' })
   };
 
   return (
-    <>
-      <div className="flex gap-2 relative" onMouseLeave={handleMouseLeave}>
+    <div className="flex items-center gap-3 w-full">
+      <div className="flex gap-2" onMouseLeave={handleMouseLeave}>
         {[0, 1, 2, 3, 4].map((index) => {
           const rating = index + 1;
           
           return (
             <div
               key={index}
-              className={`${sizeClasses[size]} cursor-pointer relative`}
+              className={`${sizeClasses[size]} cursor-pointer`}
               onMouseMove={(e) => handleMouseMove(index, e)}
-              onMouseLeave={handleMouseLeave}
               onClick={(e) => {
                 const rect = e.currentTarget.getBoundingClientRect();
                 const x = e.clientX - rect.left;
@@ -134,28 +110,16 @@ export default function HeadphoneRating({ value = 0, onChange, size = 'large' })
                 handleClick(rating - (isLeftHalf ? 0.5 : 0));
               }}
             >
-              <HeadphoneIcon rating={rating} index={index} />
+              <HeadphoneIcon rating={rating} />
             </div>
           );
         })}
       </div>
 
-      {/* Tooltip */}
-      {showTooltip && displayValue > 0 && (
-        <div
-          className="fixed z-50 px-3 py-2 text-sm font-medium text-white bg-black dark:bg-white dark:text-black rounded-lg shadow-sm pointer-events-none bg-opacity-80 dark:bg-opacity-80"
-          style={{
-            left: `${tooltipPosition.x}px`,
-            top: `${tooltipPosition.y - 40}px`,
-            transform: 'translateX(-50%)'
-          }}
-        >
-          {displayValue} / 5
-          <div
-            className="absolute left-1/2 -translate-x-1/2 -bottom-1 w-2 h-2 bg-black dark:bg-white rotate-45 bg-opacity-80 dark:bg-opacity-80"
-          />
-        </div>
-      )}
-    </>
+      {/* Rating Display Box */}
+      <div className={`border-2 border-black dark:border-white ${boxColorClasses} ${boxSizeClasses[size]} font-medium text-center ml-auto`}>
+        {boxDisplayValue}/5
+      </div>
+    </div>
   );
 }

@@ -136,12 +136,12 @@ export default function SearchPage() {
           )}
         </div>
         {results.artists.length > 0 ? (
-          <div className="grid grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
             {getDisplayedItems(results.artists, 'artists').map(artist => (
               <div
                 key={artist.id}
                 className="border-2 border-black dark:border-white bg-white dark:bg-gray-900 p-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                onClick={() => navigate(`/artist/${artist.id}`, { state: { artist } })}
+                onClick={() => navigate(`/artist/${artist.id}`)}
               >
                 <div className="aspect-square mb-2">
                   {artist.image ? (
@@ -180,12 +180,12 @@ export default function SearchPage() {
           )}
         </div>
         {results.albums.length > 0 ? (
-          <div className="grid grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
             {getDisplayedItems(results.albums, 'albums').map(album => (
               <div
                 key={album.id}
                 className="cursor-pointer"
-                onClick={() => navigate('/album-rating', { state: { item: album } })}
+                onClick={() => navigate(`/album/${album.id}`)}
               >
                 <div className="aspect-square mb-2 border-2 border-black dark:border-white">
                   {album.coverArt ? (
@@ -226,12 +226,12 @@ export default function SearchPage() {
             {getDisplayedItems(results.tracks, 'tracks').map((track, index, array) => (
               <div
                 key={track.id}
-                className={`flex items-center gap-4 p-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors ${
+                className={`flex items-center gap-2 sm:gap-4 p-2 sm:p-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors ${
                   index !== array.length - 1 ? 'border-b-2 border-black dark:border-white' : ''
                 }`}
-                onClick={() => navigate('/song-rating', { state: { item: track } })}
+                onClick={() => navigate(`/song/${track.id}`)}
               >
-                <div className="w-16 h-16 flex-shrink-0 border-2 border-black dark:border-white">
+                <div className="w-12 h-12 sm:w-16 sm:h-16 flex-shrink-0 border-2 border-black dark:border-white">
                   {track.coverArt ? (
                     <img src={track.coverArt} alt={track.title} className="w-full h-full object-cover" />
                   ) : (
@@ -239,11 +239,11 @@ export default function SearchPage() {
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold truncate text-black dark:text-white">{track.title}</p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 truncate">{track.artist}</p>
+                  <p className="font-semibold truncate text-black dark:text-white text-sm sm:text-base">{track.title}</p>
+                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 truncate">{track.artist}</p>
                   <p className="text-xs text-gray-500 dark:text-gray-500 truncate">{track.album}</p>
                 </div>
-                <div className="text-gray-600 dark:text-gray-400 text-sm">
+                <div className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm">
                   {formatDuration(track.duration)}
                 </div>
               </div>

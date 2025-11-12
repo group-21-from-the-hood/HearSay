@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { spotifyApi, getAccessToken } from '../config/spotify';
 import { useTheme } from '../context/ThemeContext';
 import HeadphoneRating from './HeadphoneRating';
 
 export default function AlbumRatingPage() {
-  const location = useLocation();
-  const album = location.state?.item;
+  const { albumId } = useParams();
   const { theme } = useTheme();
+  const [album, setAlbum] = useState(null);
   const [albumDetails, setAlbumDetails] = useState(null);
   const [tracks, setTracks] = useState([]);
   const [trackRatings, setTrackRatings] = useState({});
@@ -16,7 +16,7 @@ export default function AlbumRatingPage() {
 
   useEffect(() => {
     const fetchAlbumData = async () => {
-      if (!album?.id) return;
+      if (!albumId) return;
 
       try {
         setLoading(true);
@@ -25,17 +25,24 @@ export default function AlbumRatingPage() {
 
         // Fetch album details and tracks in parallel
         const [albumResponse, tracksResponse] = await Promise.all([
-          spotifyApi.getAlbum(album.id),
-          spotifyApi.getAlbumTracks(album.id)
+          spotifyApi.getAlbum(albumId),
+          spotifyApi.getAlbumTracks(albumId)
         ]);
 
-        setAlbumDetails({
-          ...album,
+        const albumData = {
+          id: albumResponse.body.id,
+          title: albumResponse.body.name,
+          artist: albumResponse.body.artists[0]?.name,
+          coverArt: albumResponse.body.images?.[0]?.url,
           releaseDate: albumResponse.body.release_date,
           totalTracks: albumResponse.body.total_tracks,
           label: albumResponse.body.label,
-          popularity: albumResponse.body.popularity
-        });
+          popularity: albumResponse.body.popularity,
+          spotifyUrl: albumResponse.body.external_urls.spotify
+        };
+
+        setAlbum(albumData);
+        setAlbumDetails(albumData);
 
         setTracks(tracksResponse.body.items.map(track => ({
           id: track.id,
@@ -52,7 +59,7 @@ export default function AlbumRatingPage() {
     };
 
     fetchAlbumData();
-  }, [album?.id]);
+  }, [albumId]);
 
   const handleTrackRating = (trackId, rating) => {
     setTrackRatings(prev => ({
@@ -74,9 +81,9 @@ export default function AlbumRatingPage() {
           <div className="text-xl text-black dark:text-white">Loading album details...</div>
         </div>
       ) : (
-        <div className="grid grid-cols-12 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Cover Art and Info */}
-          <div className="col-span-4">
+          <div className="lg:col-span-4">
             <div className="aspect-square border-2 border-black dark:border-white bg-white dark:bg-gray-900 mb-4">
               {album?.coverArt && (
                 <img src={album.coverArt} alt={album.title} className="w-full h-full object-cover" />
@@ -94,7 +101,7 @@ export default function AlbumRatingPage() {
           </div>
 
           {/* Middle Column - Player and Review */}
-          <div className="col-span-5">
+          <div className="lg:col-span-5">
             {/* Embedded Player */}
             <div className="border-2 border-black dark:border-white overflow-hidden mb-4" style={{ backgroundColor: theme === 'dark' ? '#121212' : '#ffffff' }}>
               <iframe
@@ -127,7 +134,7 @@ export default function AlbumRatingPage() {
           </div>
 
           {/* Track List */}
-          <div className="col-span-3">
+          <div className="lg:col-span-3">
             <div className="border-2 border-black dark:border-white bg-white dark:bg-gray-900 text-black dark:text-white flex flex-col" style={{ maxHeight: 'calc(100vh - 8rem)' }}>
               <h2 className="font-semibold p-4 pb-2 border-b-2 border-black dark:border-white">
                 <span className="text-black dark:text-white">Track List</span>
@@ -163,7 +170,7 @@ export default function AlbumRatingPage() {
           <span className="text-black dark:text-white">Related Albums</span>
         </h2>
         <div className="border-2 border-black dark:border-white p-4 bg-white dark:bg-gray-900">
-          <div className="grid grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
             {relatedAlbums.map(related => (
               <div key={related.id} className="cursor-pointer">
                 <div className="aspect-square">

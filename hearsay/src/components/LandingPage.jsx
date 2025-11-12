@@ -105,12 +105,12 @@ export default function LandingPage() {
             </div>
           ) : (
             albums.length > 0 && (
-              <div className="grid grid-cols-5 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                 {albums.map(album => (
                   <div
                     key={album.id}
                     className="flex flex-col cursor-pointer group"
-                    onClick={() => navigate('/album-rating', { state: { item: album } })}
+                    onClick={() => navigate(`/album/${album.id}`)}
                   >
                     <div className="aspect-square mb-2 border-2 border-black dark:border-white bg-white">
                       {album.coverArt ? (
@@ -149,12 +149,12 @@ export default function LandingPage() {
             </div>
           ) : (
             songs.length > 0 && (
-              <div className="grid grid-cols-5 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                 {songs.map(song => (
                   <div
                     key={song.id}
                     className="flex flex-col cursor-pointer group"
-                    onClick={() => navigate('/song-rating', { state: { item: song } })}
+                    onClick={() => navigate(`/song/${song.id}`)}
                   >
                     <div className="aspect-square mb-2 border-2 border-black dark:border-white bg-white">
                       {song.coverArt ? (

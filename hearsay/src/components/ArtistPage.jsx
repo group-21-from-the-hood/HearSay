@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { spotifyApi, getAccessToken } from '../config/spotify';
 
 export default function ArtistPage() {
-  const location = useLocation();
-  const artist = location.state?.artist;
+  const { artistId } = useParams();
   const navigate = useNavigate();
   
   const [artistDetails, setArtistDetails] = useState(null);
@@ -15,7 +14,7 @@ export default function ArtistPage() {
 
   useEffect(() => {
     const fetchArtistData = async () => {
-      if (!artist?.id) {
+      if (!artistId) {
         setLoading(false);
         return;
       }
@@ -27,10 +26,9 @@ export default function ArtistPage() {
         const token = await getAccessToken();
         spotifyApi.setAccessToken(token);
 
-        // Fetch artist details and albums in parallel
         const [artistResponse, albumsResponse] = await Promise.all([
-          spotifyApi.getArtist(artist.id),
-          spotifyApi.getArtistAlbums(artist.id, {
+          spotifyApi.getArtist(artistId),
+          spotifyApi.getArtistAlbums(artistId, {
             limit: 50,
             include_groups: 'album,single',
             market: 'US'
@@ -44,7 +42,6 @@ export default function ArtistPage() {
           genres: artistResponse.body.genres
         });
 
-        // Separate albums and singles
         const albumItems = [];
         const singleItems = [];
         const seenAlbums = new Map();
@@ -125,7 +122,7 @@ export default function ArtistPage() {
     };
 
     fetchArtistData();
-  }, [artist?.id]);
+  }, [artistId]);
 
   if (loading) {
     return (
@@ -145,7 +142,7 @@ export default function ArtistPage() {
     );
   }
 
-  if (!artist?.id) {
+  if (!artistId) {
     return (
       <main className="container mx-auto px-4 py-8">
         <div className="text-center text-xl text-black dark:text-white">Artist not found</div>
@@ -157,8 +154,8 @@ export default function ArtistPage() {
     <main className="container mx-auto px-4 py-8">
       {/* Artist Header */}
       <div className="mb-12">
-        <div className="flex items-start gap-8">
-          <div className="w-64 h-64 flex-shrink-0 border-2 border-black dark:border-white">
+        <div className="flex flex-col md:flex-row items-start gap-8">
+          <div className="w-full md:w-64 aspect-square md:h-64 flex-shrink-0 border-2 border-black dark:border-white">
             {artistDetails?.image ? (
               <img 
                 src={artistDetails.image} 
@@ -172,7 +169,7 @@ export default function ArtistPage() {
             )}
           </div>
           <div className="flex-1">
-            <h1 className="text-4xl font-bold mb-4">
+            <h1 className="text-2xl md:text-4xl font-bold mb-4">
               <span className="text-black dark:text-white">{artistDetails?.name}</span>
             </h1>
             <div className="space-y-3 text-base text-black dark:text-white">
@@ -189,7 +186,7 @@ export default function ArtistPage() {
               <div>
                 <p className="font-semibold mb-2">About:</p>
                 <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
-                  {artist?.name || artistDetails?.name} is a {artistDetails?.genres?.[0] || 'music'} artist with{' '}
+                  {artistDetails?.name} is a {artistDetails?.genres?.[0] || 'music'} artist with{' '}
                   {artistDetails?.followers?.toLocaleString()} followers on Spotify. 
                   {artistDetails?.genres && artistDetails.genres.length > 1 && (
                     <> Their music spans across {artistDetails.genres.slice(0, 3).join(', ')} genres.</>
@@ -207,12 +204,12 @@ export default function ArtistPage() {
           <span className="text-black dark:text-white">Albums ({albums.length})</span>
         </h2>
         {albums.length > 0 ? (
-          <div className="grid grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
             {albums.map(album => (
               <div
                 key={album.id}
                 className="cursor-pointer group"
-                onClick={() => navigate('/album-rating', { state: { item: album } })}
+                onClick={() => navigate(`/album/${album.id}`)}
               >
                 <div className="aspect-square mb-2 border-2 border-black dark:border-white">
                   {album.coverArt ? (
@@ -247,12 +244,12 @@ export default function ArtistPage() {
           <span className="text-black dark:text-white">Singles ({singles.length})</span>
         </h2>
         {singles.length > 0 ? (
-          <div className="grid grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
             {singles.map(single => (
               <div
                 key={single.id}
                 className="cursor-pointer group"
-                onClick={() => navigate('/song-rating', { state: { item: single } })}
+                onClick={() => navigate(`/song/${single.id}`)}
               >
                 <div className="aspect-square mb-2 border-2 border-black dark:border-white">
                   {single.coverArt ? (

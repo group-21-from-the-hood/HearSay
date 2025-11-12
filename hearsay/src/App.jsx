@@ -19,9 +19,9 @@ function App() {
           <Routes>
             <Route path="/" element={<LandingPage />} />
             <Route path="/search" element={<SearchPage />} />
-            <Route path="/artist/:id" element={<ArtistPage />} />
-            <Route path="/album-rating" element={<AlbumRatingPage />} />
-            <Route path="/song-rating" element={<SongRatingPage />} />
+            <Route path="/artist/:artistId" element={<ArtistPage />} />
+            <Route path="/album/:albumId" element={<AlbumRatingPage />} />
+            <Route path="/song/:songId" element={<SongRatingPage />} />
             <Route path="/my-reviews" element={<MyReviewsPage />} />
             <Route path="/discover" element={<DiscoverPage />} />
             <Route path="/random" element={<RandomPage />} />
