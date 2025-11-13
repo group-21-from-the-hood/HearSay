@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { spotifyApi, getAccessToken } from '../config/spotify';
+import { getSpotifyTrack } from '../config/spotify';
 import { useTheme } from '../context/ThemeContext';
 import HeadphoneRating from './HeadphoneRating';
 import { sanitizeInput, sanitizeRating } from '../utils/sanitize';
@@ -26,19 +26,15 @@ export default function SongRatingPage() {
 
       try {
         setLoading(true);
-        const token = await getAccessToken();
-        spotifyApi.setAccessToken(token);
-
-        const trackResponse = await spotifyApi.getTrack(songId);
-        
+        const trackResponse = await getSpotifyTrack(songId);
         const songData = {
-          id: trackResponse.body.id,
-          title: trackResponse.body.name,
-          artist: trackResponse.body.artists[0]?.name,
-          coverArt: trackResponse.body.album?.images?.[0]?.url,
-          duration: trackResponse.body.duration_ms,
-          album: trackResponse.body.album.name,
-          spotifyUrl: trackResponse.body.external_urls.spotify
+          id: trackResponse.id,
+          title: trackResponse.name,
+          artist: trackResponse.artists?.[0]?.name,
+          coverArt: trackResponse.album?.images?.[0]?.url,
+          duration: trackResponse.duration_ms,
+          album: trackResponse.album?.name,
+          spotifyUrl: trackResponse.external_urls?.spotify
         };
 
         setSong(songData);

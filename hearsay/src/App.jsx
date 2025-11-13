@@ -4,6 +4,8 @@ import LandingPage from './components/LandingPage';
 import AlbumRatingPage from './components/AlbumRatingPage';
 import SongRatingPage from './components/SongRatingPage';
 import MyReviewsPage from './components/MyReviewsPage';
+import ProtectedRoute from './components/ProtectedRoute';
+import ProfilePage from './components/ProfilePage';
 import DiscoverPage from './components/DiscoverPage';
 import RandomPage from './components/RandomPage';
 import AuthPage from './components/AuthPage';
@@ -23,8 +25,9 @@ function App() {
             <Route path="/artist/:artistId" element={<ArtistPage />} />
             <Route path="/album/:albumId" element={<AlbumRatingPage />} />
             <Route path="/song/:songId" element={<SongRatingPage />} />
-            <Route path="/my-reviews" element={<MyReviewsPage />} />
+            <Route path="/my-reviews" element={<ProtectedRoute><MyReviewsPage /></ProtectedRoute>} />
             <Route path="/discover" element={<DiscoverPage />} />
+            <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
             <Route path="/random" element={<RandomPage />} />
             <Route path="/auth" element={<AuthPage />} />
             <Route path="/auth/callback" element={<AuthCallback />} />

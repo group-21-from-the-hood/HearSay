@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { spotifyApi, getAccessToken } from '../config/spotify';
+import { getSpotifyNewReleases, searchSpotify } from '../config/spotify';
 import { useTheme } from '../context/ThemeContext';
 
 export default function RandomPage() {
@@ -26,19 +26,10 @@ export default function RandomPage() {
     try {
       setLoading(true);
       setError(null);
-      const token = await getAccessToken();
-      spotifyApi.setAccessToken(token);
-
       if (type === 'album') {
-        const response = await spotifyApi.getNewReleases({ 
-          limit: 50,
-          country: 'US' 
-        });
-        
-        // Filter out single-track albums
-        const multiTrackAlbums = response.body.albums.items.filter(
-          album => album.total_tracks > 1
-        );
+        const response = await getSpotifyNewReleases({ country: 'US', limit: 50 });
+        const items = response.albums?.items || [];
+        const multiTrackAlbums = items.filter(a => a.total_tracks > 1);
         
         if (multiTrackAlbums.length === 0) {
           setError('No multi-track albums found. Please try again.');
@@ -64,9 +55,6 @@ export default function RandomPage() {
         setError(null);
         setItemType('song');
         
-        const token = await getAccessToken();
-        spotifyApi.setAccessToken(token);
-
         const randomChars = 'abcdefghijklmnopqrstuvwxyz';
         let track = null;
         let attempts = 0;
@@ -78,14 +66,10 @@ export default function RandomPage() {
           const randomOffset = Math.floor(Math.random() * 100);
 
           try {
-            const response = await spotifyApi.searchTracks(`${randomChar}*`, {
-              limit: 1,
-              offset: randomOffset,
-              market: 'US'
-            });
-
-            if (response.body.tracks.items.length > 0) {
-              track = response.body.tracks.items[0];
+            const response = await searchSpotify(`${randomChar}*`, 'track', 1, 'US', randomOffset);
+            const items = response.tracks?.items || [];
+            if (items.length > 0) {
+              track = items[0];
               break;
             }
           } catch (searchError) {

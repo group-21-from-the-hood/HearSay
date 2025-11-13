@@ -5,6 +5,7 @@ import session from 'express-session';
 import MongoStore from 'connect-mongo';
 import { ObjectId } from 'mongodb';
 import * as db from './dbAPI.js';
+import * as spotify from './spotifyAPI.js';
 
 // Load .env in development so server can read GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET
 dotenv.config();
@@ -266,6 +267,38 @@ app.post('/api/logout', (req, res) => {
   });
 });
 
+// Current user's full profile from DB
+app.get('/api/profile', async (req, res) => {
+  try {
+    const oid = req.session?.user?.oid;
+    if (!oid) return res.status(401).json({ ok: false, error: 'unauthorized' });
+    const users = db.Users.collection();
+    const doc = await users.findOne(
+      { _id: new ObjectId(oid) },
+      { projection: { email: 1, firstname: 1, lastname: 1, accounts: 1 } }
+    );
+    if (!doc) return res.status(404).json({ ok: false, error: 'not_found' });
+
+    // Build a safe profile without sensitive IDs (like Google UID)
+    const safeAccounts = Array.isArray(doc.accounts)
+      ? doc.accounts.map(a => ({ kind: a?.kind })).filter(a => a.kind)
+      : [];
+    const safe = {
+      _id: doc._id,
+      email: doc.email || '',
+      firstname: doc.firstname || '',
+      lastname: doc.lastname || '',
+      name: req.session?.user?.name || undefined,
+      picture: req.session?.user?.picture || undefined,
+      accounts: safeAccounts,
+    };
+    return res.json({ ok: true, profile: safe });
+  } catch (e) {
+    console.error('[SERVER] /api/profile error', e);
+    return res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Google auth proxy listening on http://localhost:${PORT}`);
 });
@@ -280,5 +313,98 @@ app.get('/api/test', async (req, res) => {
   } catch (err) {
     console.error('[DB] Connection FAILED:', err);
     return res.status(500).json({ ok: false, error: String(err) });
+  }
+});
+
+// ---------------- Spotify Proxy Endpoints ----------------
+// All token handling stays server-side; client calls these endpoints.
+app.get('/api/spotify/search', async (req, res) => {
+  try {
+    const { q, type = 'track', limit, market } = req.query;
+    if (!q) return res.status(400).json({ ok: false, error: 'missing_query' });
+    const lim = limit ? parseInt(limit, 10) : 10;
+    const result = await spotify.search(q, type, lim, market);
+    if (result.error && !result.data) return res.status(result.status || 500).json({ ok: false, error: result.error });
+    return res.json({ ok: true, data: result.data });
+  } catch (e) {
+    console.error('[Spotify] search error', e);
+    return res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
+app.get('/api/spotify/track/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await spotify.getTrack(id);
+    if (result.error && !result.data) return res.status(result.status || 500).json({ ok: false, error: result.error });
+    return res.json({ ok: true, data: result.data });
+  } catch (e) {
+    console.error('[Spotify] track error', e);
+    return res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
+app.get('/api/spotify/album/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await spotify.getAlbum(id);
+    if (result.error && !result.data) return res.status(result.status || 500).json({ ok: false, error: result.error });
+    return res.json({ ok: true, data: result.data });
+  } catch (e) {
+    console.error('[Spotify] album error', e);
+    return res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
+app.get('/api/spotify/artist/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await spotify.getArtist(id);
+    if (result.error && !result.data) return res.status(result.status || 500).json({ ok: false, error: result.error });
+    return res.json({ ok: true, data: result.data });
+  } catch (e) {
+    console.error('[Spotify] artist error', e);
+    return res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
+app.get('/api/spotify/artist/:id/albums', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { include_groups = 'album,single', limit = 50, market } = req.query;
+    const result = await spotify.getArtistAlbums(id, { include_groups, limit: parseInt(limit, 10) || 50, market });
+    if (result.error && !result.data) return res.status(result.status || 500).json({ ok: false, error: result.error });
+    return res.json({ ok: true, data: result.data });
+  } catch (e) {
+    console.error('[Spotify] artist albums error', e);
+    return res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
+app.get('/api/spotify/new-releases', async (req, res) => {
+  try {
+    const { country = 'US', limit = 50 } = req.query;
+    const result = await spotify.getNewReleases({ country, limit: parseInt(limit, 10) || 50 });
+    if (result.error && !result.data) return res.status(result.status || 500).json({ ok: false, error: result.error });
+    return res.json({ ok: true, data: result.data });
+  } catch (e) {
+    console.error('[Spotify] new releases error', e);
+    return res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
+app.get('/api/spotify/recommendations', async (req, res) => {
+  try {
+    const params = { ...req.query };
+    // Provide default seeds if none supplied to avoid API error
+    if (!params.seed_genres && !params.seed_artists && !params.seed_tracks) {
+      params.seed_genres = 'pop,rock';
+    }
+    const result = await spotify.getRecommendations(params);
+    if (result.error && !result.data) return res.status(result.status || 500).json({ ok: false, error: result.error });
+    return res.json({ ok: true, data: result.data });
+  } catch (e) {
+    console.error('[Spotify] recommendations error', e);
+    return res.status(500).json({ ok: false, error: 'server_error' });
   }
 });

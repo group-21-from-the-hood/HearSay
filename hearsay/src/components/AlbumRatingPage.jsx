@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { spotifyApi, getAccessToken } from '../config/spotify';
+import { getSpotifyAlbum } from '../config/spotify';
 import { useTheme } from '../context/ThemeContext';
 import HeadphoneRating from './HeadphoneRating';
 import { sanitizeInput, sanitizeRating } from '../utils/sanitize';
@@ -28,31 +28,24 @@ export default function AlbumRatingPage() {
 
       try {
         setLoading(true);
-        const token = await getAccessToken();
-        spotifyApi.setAccessToken(token);
-
-        // Fetch album details and tracks in parallel
-        const [albumResponse, tracksResponse] = await Promise.all([
-          spotifyApi.getAlbum(albumId),
-          spotifyApi.getAlbumTracks(albumId)
-        ]);
-
+        const albumResponse = await getSpotifyAlbum(albumId);
         const albumData = {
-          id: albumResponse.body.id,
-          title: albumResponse.body.name,
-          artist: albumResponse.body.artists[0]?.name,
-          coverArt: albumResponse.body.images?.[0]?.url,
-          releaseDate: albumResponse.body.release_date,
-          totalTracks: albumResponse.body.total_tracks,
-          label: albumResponse.body.label,
-          popularity: albumResponse.body.popularity,
-          spotifyUrl: albumResponse.body.external_urls.spotify
+          id: albumResponse.id,
+          title: albumResponse.name,
+          artist: albumResponse.artists?.[0]?.name,
+          coverArt: albumResponse.images?.[0]?.url,
+          releaseDate: albumResponse.release_date,
+          totalTracks: albumResponse.total_tracks,
+          label: albumResponse.label,
+          popularity: albumResponse.popularity,
+          spotifyUrl: albumResponse.external_urls?.spotify
         };
 
         setAlbum(albumData);
         setAlbumDetails(albumData);
 
-        setTracks(tracksResponse.body.items.map(track => ({
+        const trackItems = albumResponse.tracks?.items || [];
+        setTracks(trackItems.map(track => ({
           id: track.id,
           name: track.name,
           duration: track.duration_ms,

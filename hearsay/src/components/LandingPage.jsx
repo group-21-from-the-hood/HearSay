@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { spotifyApi, getAccessToken } from '../config/spotify';
+import { searchSpotify } from '../config/spotify';
 import { useTheme } from '../context/ThemeContext';
 
 const MIN_LOADING_TIME = 1000;
@@ -59,31 +59,22 @@ export default function LandingPage() {
 
       const loadingStartTime = Date.now();
 
-      const token = await getAccessToken();
-      spotifyApi.setAccessToken(token);
-
       // Randomly select search terms for more variety
       const randomAlbumTerm = ALBUM_SEARCH_TERMS[Math.floor(Math.random() * ALBUM_SEARCH_TERMS.length)];
       const randomTrackTerm = TRACK_SEARCH_TERMS[Math.floor(Math.random() * TRACK_SEARCH_TERMS.length)];
 
       // Fetch multiple queries to get a larger, more diverse pool
       const [albumsResponse1, albumsResponse2, tracksResponse1, tracksResponse2] = await Promise.all([
-        spotifyApi.searchAlbums(randomAlbumTerm, { limit: 50, market: selectedLocale }),
-        spotifyApi.searchAlbums(ALBUM_SEARCH_TERMS[(ALBUM_SEARCH_TERMS.indexOf(randomAlbumTerm) + 1) % ALBUM_SEARCH_TERMS.length], { 
-          limit: 50, 
-          market: selectedLocale 
-        }),
-        spotifyApi.searchTracks(randomTrackTerm, { limit: 50, market: selectedLocale }),
-        spotifyApi.searchTracks(TRACK_SEARCH_TERMS[(TRACK_SEARCH_TERMS.indexOf(randomTrackTerm) + 1) % TRACK_SEARCH_TERMS.length], { 
-          limit: 50, 
-          market: selectedLocale 
-        })
+        searchSpotify(randomAlbumTerm, 'album', 50, selectedLocale),
+        searchSpotify(ALBUM_SEARCH_TERMS[(ALBUM_SEARCH_TERMS.indexOf(randomAlbumTerm) + 1) % ALBUM_SEARCH_TERMS.length], 'album', 50, selectedLocale),
+        searchSpotify(randomTrackTerm, 'track', 50, selectedLocale),
+        searchSpotify(TRACK_SEARCH_TERMS[(TRACK_SEARCH_TERMS.indexOf(randomTrackTerm) + 1) % TRACK_SEARCH_TERMS.length], 'track', 50, selectedLocale)
       ]);
 
       // Combine albums from both searches
       const allAlbums = [
-        ...albumsResponse1.body.albums.items,
-        ...albumsResponse2.body.albums.items
+        ...(albumsResponse1?.albums?.items || []),
+        ...(albumsResponse2?.albums?.items || [])
       ];
 
       // Remove album duplicates and filter
@@ -114,8 +105,8 @@ export default function LandingPage() {
 
       // Combine tracks from both searches
       const allTracks = [
-        ...tracksResponse1.body.tracks.items,
-        ...tracksResponse2.body.tracks.items
+        ...(tracksResponse1?.tracks?.items || []),
+        ...(tracksResponse2?.tracks?.items || [])
       ];
 
       // Remove track duplicates

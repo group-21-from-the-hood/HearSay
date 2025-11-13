@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { spotifyApi, getAccessToken } from '../config/spotify';
+import { getSpotifyArtist, getSpotifyArtistAlbums, getSpotifyAlbum } from '../config/spotify';
 
 export default function ArtistPage() {
   const { artistId } = useParams();
@@ -23,23 +23,16 @@ export default function ArtistPage() {
         setLoading(true);
         setError(null);
         
-        const token = await getAccessToken();
-        spotifyApi.setAccessToken(token);
-
         const [artistResponse, albumsResponse] = await Promise.all([
-          spotifyApi.getArtist(artistId),
-          spotifyApi.getArtistAlbums(artistId, {
-            limit: 50,
-            include_groups: 'album,single',
-            market: 'US'
-          })
+          getSpotifyArtist(artistId),
+          getSpotifyArtistAlbums(artistId, { include_groups: 'album,single', limit: 50, market: 'US' })
         ]);
 
         setArtistDetails({
-          name: artistResponse.body.name,
-          image: artistResponse.body.images?.[0]?.url,
-          followers: artistResponse.body.followers?.total,
-          genres: artistResponse.body.genres
+          name: artistResponse.name,
+          image: artistResponse.images?.[0]?.url,
+          followers: artistResponse.followers?.total,
+          genres: artistResponse.genres
         });
 
         const albumItems = [];
@@ -47,7 +40,7 @@ export default function ArtistPage() {
         const seenAlbums = new Map();
         const seenSingles = new Map();
 
-        albumsResponse.body.items.forEach(item => {
+        (albumsResponse.items || []).forEach(item => {
           const key = item.name.toLowerCase().trim();
           
           if (item.album_type === 'album') {
@@ -66,47 +59,45 @@ export default function ArtistPage() {
         // Get full details for albums
         const albumDetailsPromises = albumItems
           .slice(0, 50)
-          .map(album => spotifyApi.getAlbum(album.id));
+          .map(album => getSpotifyAlbum(album.id));
 
         const albumDetailsResponses = await Promise.all(albumDetailsPromises);
 
         const sortedAlbums = albumDetailsResponses
-          .map(response => ({
-            id: response.body.id,
-            title: response.body.name,
-            artist: response.body.artists[0]?.name,
-            coverArt: response.body.images?.[0]?.url,
-            releaseDate: response.body.release_date,
-            totalTracks: response.body.total_tracks,
-            popularity: response.body.popularity || 0,
-            type: response.body.album_type,
-            spotifyUrl: response.body.external_urls.spotify
+          .map(r => ({
+            id: r.id,
+            title: r.name,
+            artist: r.artists?.[0]?.name,
+            coverArt: r.images?.[0]?.url,
+            releaseDate: r.release_date,
+            totalTracks: r.total_tracks,
+            popularity: r.popularity || 0,
+            type: r.album_type,
+            spotifyUrl: r.external_urls?.spotify
           }))
           .sort((a, b) => b.popularity - a.popularity);
 
         // Get full details for singles and extract first track
         const singleDetailsPromises = singleItems
           .slice(0, 50)
-          .map(single => spotifyApi.getAlbum(single.id));
+          .map(single => getSpotifyAlbum(single.id));
 
         const singleDetailsResponses = await Promise.all(singleDetailsPromises);
 
         const sortedSingles = singleDetailsResponses
-          .map(response => {
-            // Get the first track from the single
-            const firstTrack = response.body.tracks?.items?.[0];
-            
+          .map(r => {
+            const firstTrack = r.tracks?.items?.[0];
             return {
-              id: firstTrack?.id || response.body.id, // Use track ID for singles
-              title: response.body.name,
-              artist: response.body.artists[0]?.name,
-              coverArt: response.body.images?.[0]?.url,
-              releaseDate: response.body.release_date,
-              totalTracks: response.body.total_tracks,
-              popularity: response.body.popularity || 0,
-              type: response.body.album_type,
-              spotifyUrl: response.body.external_urls.spotify,
-              album: response.body.name // Add album name for track
+              id: firstTrack?.id || r.id,
+              title: r.name,
+              artist: r.artists?.[0]?.name,
+              coverArt: r.images?.[0]?.url,
+              releaseDate: r.release_date,
+              totalTracks: r.total_tracks,
+              popularity: r.popularity || 0,
+              type: r.album_type,
+              spotifyUrl: r.external_urls?.spotify,
+              album: r.name,
             };
           })
           .sort((a, b) => b.popularity - a.popularity);

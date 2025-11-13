@@ -74,7 +74,9 @@ export default function Header() {
           
           <nav className="flex-1 mx-8">
             <ul className="flex justify-center space-x-8">
-              <li><Link to="/my-reviews" className="text-black dark:text-white hover:underline">my reviews</Link></li>
+              {me.authenticated && (
+                <li><Link to="/my-reviews" className="text-black dark:text-white hover:underline">my reviews</Link></li>
+              )}
               <li><Link to="/discover" className="text-black dark:text-white hover:underline">discover</Link></li>
               <li><Link to="/random" className="text-black dark:text-white hover:underline">random</Link></li>
             </ul>
@@ -95,9 +97,9 @@ export default function Header() {
             {me.authenticated ? (
               <div className="flex items-center gap-3">
                 <Avatar src={me.user?.picture} name={me.user?.name || me.user?.email} size={32} />
-                <span className="text-black dark:text-white max-w-[160px] truncate" title={me.user?.email || me.user?.name}>
+                <Link to="/profile" className="text-black dark:text-white max-w-[160px] truncate hover:underline" title={me.user?.email || me.user?.name}>
                   {me.user?.name || me.user?.email || 'Signed in'}
-                </span>
+                </Link>
                 <button
                   onClick={handleLogout}
                   className="h-10 border-2 border-black dark:border-white bg-white dark:bg-gray-900 text-black dark:text-white px-3 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
@@ -165,15 +167,17 @@ export default function Header() {
             
             <nav>
               <ul className="space-y-2">
-                <li>
-                  <Link 
-                    to="/my-reviews" 
-                    className="block py-2 text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 border-2 border-black dark:border-white px-4"
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    my reviews
-                  </Link>
-                </li>
+                {me.authenticated && (
+                  <li>
+                    <Link 
+                      to="/my-reviews" 
+                      className="block py-2 text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 border-2 border-black dark:border-white px-4"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      my reviews
+                    </Link>
+                  </li>
+                )}
                 <li>
                   <Link 
                     to="/discover" 
@@ -199,9 +203,14 @@ export default function Header() {
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
                   <Avatar src={me.user?.picture} name={me.user?.name || me.user?.email} size={32} />
-                  <span className="text-black dark:text-white" title={me.user?.email || me.user?.name}>
+                  <Link 
+                    to="/profile"
+                    className="text-black dark:text-white hover:underline"
+                    title={me.user?.email || me.user?.name}
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
                     {me.user?.name || me.user?.email || 'Signed in'}
-                  </span>
+                  </Link>
                 </div>
                 <button
                   onClick={() => { handleLogout(); setMobileMenuOpen(false); }}
