@@ -60,6 +60,11 @@ export function getDb() {
   return db;
 }
 
+export function getClient() {
+  if (!client) throw new Error('Mongo client not connected. Call connectMongo() first.');
+  return client;
+}
+
 export async function closeMongo() {
   if (client) {
     await client.close();
@@ -125,6 +130,7 @@ const COL = {
   reviews: 'reviews',
   songs: 'songs',
   users: 'users',
+  sessions: 'sessions',
 };
 
 // Domain-specific wrappers (thin)
@@ -145,6 +151,7 @@ export const Artists = makeApi(COL.artists);
 export const Reviews = makeApi(COL.reviews);
 export const Songs = makeApi(COL.songs);
 export const Users = makeApi(COL.users);
+export const Sessions = makeApi(COL.sessions);
 
 // Convenience starter that you can call once on server boot
 export async function initDb() {
@@ -167,4 +174,5 @@ export default {
   Reviews,
   Songs,
   Users,
+  Sessions,
 };

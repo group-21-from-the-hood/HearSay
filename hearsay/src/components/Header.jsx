@@ -1,13 +1,56 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { sanitizeSearchQuery } from '../utils/sanitize';
+import { onAuthChange, emitAuthChange } from '../utils/authBus';
+import Avatar from './Avatar';
 
 export default function Header() {
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [me, setMe] = useState({ loading: true, authenticated: false, user: null });
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetchMe = async () => {
+      try {
+        const res = await fetch('/api/me', { credentials: 'include' });
+        const data = await res.json().catch(() => ({ authenticated: false }));
+        if (!cancelled) setMe({ loading: false, authenticated: !!data.authenticated, user: data.user || null });
+      } catch {
+        if (!cancelled) setMe({ loading: false, authenticated: false, user: null });
+      }
+    };
+
+    // Initial check
+    fetchMe();
+
+    // Refresh when an auth change is broadcast
+    const offAuth = onAuthChange(() => fetchMe());
+
+    // Also refresh when tab regains focus (common after OAuth flow)
+    const onFocus = () => fetchMe();
+    window.addEventListener('focus', onFocus);
+
+    return () => {
+      cancelled = true;
+      offAuth?.();
+      window.removeEventListener('focus', onFocus);
+    };
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/logout', { method: 'POST', credentials: 'include' });
+    } finally {
+      try { localStorage.removeItem('hs_user'); } catch {}
+      setMe({ loading: false, authenticated: false, user: null });
+      emitAuthChange({ authenticated: false });
+      navigate('/');
+    }
+  };
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -49,12 +92,27 @@ export default function Header() {
               />
             </form>
             
-            <button 
-              onClick={() => navigate('/auth')}
-              className="h-10 border-2 border-black dark:border-white bg-white dark:bg-gray-900 text-black dark:text-white px-4 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex items-center justify-center"
-            >
-              login/register
-            </button>
+            {me.authenticated ? (
+              <div className="flex items-center gap-3">
+                <Avatar src={me.user?.picture} name={me.user?.name || me.user?.email} size={32} />
+                <span className="text-black dark:text-white max-w-[160px] truncate" title={me.user?.email || me.user?.name}>
+                  {me.user?.name || me.user?.email || 'Signed in'}
+                </span>
+                <button
+                  onClick={handleLogout}
+                  className="h-10 border-2 border-black dark:border-white bg-white dark:bg-gray-900 text-black dark:text-white px-3 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                >
+                  logout
+                </button>
+              </div>
+            ) : (
+              <button 
+                onClick={() => navigate('/auth')}
+                className="h-10 border-2 border-black dark:border-white bg-white dark:bg-gray-900 text-black dark:text-white px-4 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex items-center justify-center"
+              >
+                login/register
+              </button>
+            )}
 
             <button
               onClick={toggleTheme}
@@ -137,15 +195,32 @@ export default function Header() {
               </ul>
             </nav>
             
-            <button 
-              onClick={() => {
-                navigate('/auth');
-                setMobileMenuOpen(false);
-              }}
-              className="w-full h-10 border-2 border-black dark:border-white bg-white dark:bg-gray-900 text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex items-center justify-center"
-            >
-              login/register
-            </button>
+            {me.authenticated ? (
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <Avatar src={me.user?.picture} name={me.user?.name || me.user?.email} size={32} />
+                  <span className="text-black dark:text-white" title={me.user?.email || me.user?.name}>
+                    {me.user?.name || me.user?.email || 'Signed in'}
+                  </span>
+                </div>
+                <button
+                  onClick={() => { handleLogout(); setMobileMenuOpen(false); }}
+                  className="h-10 border-2 border-black dark:border-white bg-white dark:bg-gray-900 text-black dark:text-white px-4 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                >
+                  logout
+                </button>
+              </div>
+            ) : (
+              <button 
+                onClick={() => {
+                  navigate('/auth');
+                  setMobileMenuOpen(false);
+                }}
+                className="w-full h-10 border-2 border-black dark:border-white bg-white dark:bg-gray-900 text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex items-center justify-center"
+              >
+                login/register
+              </button>
+            )}
           </div>
         )}
       </div>

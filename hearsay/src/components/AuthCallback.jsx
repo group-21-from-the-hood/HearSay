@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { emitAuthChange } from '../utils/authBus';
 
 // Helper to decode JWT payload (unsafe; only used to extract basic profile claims)
 function parseJwt (token) {
@@ -44,20 +45,11 @@ export default function AuthCallback() {
 
       try {
         const redirectUri = import.meta.env.VITE_GOOGLE_REDIRECT_URI || `${window.location.origin}/auth/callback`;
-        const body = new URLSearchParams({
-          client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
-          grant_type: 'authorization_code',
-          code,
-          redirect_uri: redirectUri,
-          code_verifier,
-        });
-
-        // Use backend proxy to perform token exchange (keeps client secret on server)
-  const backend = import.meta.env.VITE_GOOGLE_BACKEND_URL || 'http://localhost:5174';
-        console.log('Calling backend token exchange at', `${backend}/api/auth/google/exchange`);
-        const proxyRes = await fetch(`${backend}/api/auth/google/exchange`, {
+        // Use backend proxy (through Vite) to perform token exchange and set session cookie
+        const proxyRes = await fetch(`/api/auth/google/exchange`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify({ code, redirect_uri: redirectUri, code_verifier }),
         });
 
@@ -67,20 +59,12 @@ export default function AuthCallback() {
           throw new Error(`Token exchange failed: ${proxyRes.status} ${proxyRes.statusText} ${errText || ''}`);
         }
 
-        const tokens = await proxyRes.json();
-        // tokens contain access_token, id_token, expires_in, refresh_token (maybe)
-        const idToken = tokens.id_token;
-        const profile = parseJwt(idToken);
+        const { user } = await proxyRes.json();
 
-        // Minimal local sign-in: store user info in localStorage
-        const user = {
-          email: profile?.email,
-          name: profile?.name,
-          picture: profile?.picture,
-          provider: 'google',
-          tokens,
-        };
-        localStorage.setItem('hs_user', JSON.stringify(user));
+        // Optionally cache minimal profile on client for UI convenience
+        try {
+          localStorage.setItem('hs_user', JSON.stringify(user));
+        } catch {}
 
         // Clean up verifier from storage
         try {
@@ -89,7 +73,8 @@ export default function AuthCallback() {
           sessionStorage.removeItem('google_pkce_verifier');
         }
 
-        // Redirect home
+        // Notify app and redirect home
+        emitAuthChange({ authenticated: true, user });
         navigate('/');
       } catch (e) {
         console.error(e);

@@ -1,6 +1,8 @@
 import dotenv from 'dotenv';
 import express from 'express';
 import cors from 'cors';
+import session from 'express-session';
+import MongoStore from 'connect-mongo';
 import * as db from './dbAPI.js';
 
 // Load .env in development so server can read GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET
@@ -9,8 +11,72 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5174;
 
-app.use(cors({ origin: true }));
+// Frontend origin for CORS (cookies), session cookie name/secret and timings
+const ORIGIN = process.env.FRONTEND_ORIGIN || 'http://localhost:5173';
+const SESSION_NAME = process.env.SESSION_NAME || 'hsid';
+const SESSION_SECRET = process.env.SESSION_SECRET || 'dev-insecure-secret';
+const SESSION_TTL_SECONDS = parseInt(process.env.SESSION_TTL_SECONDS || '3600', 10); // 1 hour
+const SESSION_ROTATE_MS = parseInt(process.env.SESSION_ROTATE_MS || String(60 * 60 * 1000), 10);
+const MONGO_DB = process.env.MONGO_DB_NAME || process.env.VITE_MONGO_DB_NAME || 'HearSay';
+const SESSIONS_COLLECTION = process.env.SESSIONS_COLLECTION || 'expressSessions';
+
+// Allow cookies from the frontend app
+app.use(cors({ origin: ORIGIN, credentials: true }));
 app.use(express.json());
+// Trust proxy when behind one (uncomment if deploying behind reverse proxy)
+// app.set('trust proxy', 1);
+
+// Ensure DB is connected before wiring sessions so the store uses auth'd client
+await db.connectMongo().catch((err) => {
+  console.error('[DB] Initial connection failed for sessions:', err);
+  process.exit(1);
+});
+
+// Sessions backed by MongoDB
+app.use(
+  session({
+    name: SESSION_NAME,
+    secret: SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    rolling: true, // refresh cookie expiration on every response
+    cookie: {
+      httpOnly: true,
+      sameSite: 'lax', // set 'none' + secure true if cross-site over HTTPS
+      secure: false, // set to true when serving over HTTPS in prod
+      maxAge: SESSION_TTL_SECONDS * 1000,
+    },
+    store: MongoStore.create({
+      // Reuse our authenticated client (uses creds/URI from dbAPI)
+      client: db.getClient(),
+      dbName: MONGO_DB,
+      // Use a dedicated collection to avoid clashing with your app's "sessions" schema
+      collectionName: SESSIONS_COLLECTION,
+      ttl: SESSION_TTL_SECONDS,
+      stringify: false,
+      autoRemove: 'native',
+    }),
+  })
+);
+
+// Rotate session id every SESSION_ROTATE_MS to mitigate fixation
+app.use((req, res, next) => {
+  if (!req.session) return next();
+  const now = Date.now();
+  const last = req.session.__lastRotated || 0;
+  if (now - last > SESSION_ROTATE_MS) {
+    const preserve = { ...req.session };
+    req.session.regenerate((err) => {
+      if (err) return next(err);
+      Object.assign(req.session, preserve);
+      req.session.__lastRotated = now;
+      next();
+    });
+  } else {
+    if (!req.session.__lastRotated) req.session.__lastRotated = now;
+    next();
+  }
+});
 
 // Simple request logging to help diagnose requests from the frontend (method, url, small body preview)
 app.use((req, res, next) => {
@@ -25,6 +91,18 @@ app.use((req, res, next) => {
 
 // Health check
 app.get('/', (req, res) => res.json({ ok: true }));
+
+// Session info endpoint: ensures a session exists and returns basic details
+app.get('/api/session', (req, res) => {
+  req.session.visits = (req.session.visits || 0) + 1;
+  if (!req.session.createdAt) req.session.createdAt = new Date().toISOString();
+  return res.json({
+    ok: true,
+    id: req.sessionID,
+    createdAt: req.session.createdAt,
+    visits: req.session.visits,
+  });
+});
 
 app.post('/api/auth/google/exchange', async (req, res) => {
   try {
@@ -69,11 +147,59 @@ app.post('/api/auth/google/exchange', async (req, res) => {
       return res.status(tokenRes.status).json(data);
     }
 
-    return res.json(data);
+    // Fetch basic profile using access_token to bind to session
+    let profile = null;
+    try {
+      const userRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+        headers: { Authorization: `Bearer ${data.access_token}` },
+      });
+      if (userRes.ok) profile = await userRes.json();
+    } catch (e) {
+      console.warn('[SERVER] Failed to fetch Google userinfo', e);
+    }
+
+    // Attach to session (minimal fields only)
+    req.session.user = {
+      provider: 'google',
+      sub: profile?.sub,
+      email: profile?.email,
+      name: profile?.name,
+      picture: profile?.picture,
+    };
+    req.session.oauth = {
+      provider: 'google',
+      access_token: data.access_token,
+      expires_in: data.expires_in,
+      token_type: data.token_type,
+      scope: data.scope,
+      refresh_token: data.refresh_token,
+      received_at: Date.now(),
+    };
+
+    // Persist session then respond with a trimmed payload
+    await new Promise((resolve, reject) => req.session.save(err => err ? reject(err) : resolve()));
+
+    return res.json({ ok: true, user: req.session.user });
   } catch (err) {
     console.error('Exchange error', err);
     return res.status(500).json({ error: 'exchange_failed', message: String(err) });
   }
+});
+
+// Returns the current authenticated user from the session
+app.get('/api/me', (req, res) => {
+  if (req.session?.user) return res.json({ authenticated: true, user: req.session.user });
+  return res.json({ authenticated: false });
+});
+
+// Destroy session (logout)
+app.post('/api/logout', (req, res) => {
+  if (!req.session) return res.json({ ok: true });
+  req.session.destroy(err => {
+    if (err) return res.status(500).json({ ok: false, error: String(err) });
+    res.clearCookie(SESSION_NAME);
+    return res.json({ ok: true });
+  });
 });
 
 app.listen(PORT, () => {

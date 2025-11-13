@@ -7,6 +7,7 @@ import MyReviewsPage from './components/MyReviewsPage';
 import DiscoverPage from './components/DiscoverPage';
 import RandomPage from './components/RandomPage';
 import AuthPage from './components/AuthPage';
+import AuthCallback from './components/AuthCallback';
 import SearchPage from './components/SearchPage';
 import ArtistPage from './components/ArtistPage';
 
@@ -26,7 +27,7 @@ function App() {
             <Route path="/discover" element={<DiscoverPage />} />
             <Route path="/random" element={<RandomPage />} />
             <Route path="/auth" element={<AuthPage />} />
-            <Route path="/api/test" element={<div>API Test Endpoint</div>} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
           </Routes>
         </div>
       </div>
