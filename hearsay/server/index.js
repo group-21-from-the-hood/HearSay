@@ -1,6 +1,7 @@
 import dotenv from 'dotenv';
 import express from 'express';
 import cors from 'cors';
+import * as db from './dbAPI.js';
 
 // Load .env in development so server can read GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET
 dotenv.config();
@@ -77,4 +78,17 @@ app.post('/api/auth/google/exchange', async (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Google auth proxy listening on http://localhost:${PORT}`);
+});
+
+// DB connectivity test: attempts to connect and ping the database
+app.get('/api/test', async (req, res) => {
+  try {
+    await db.connectMongo();
+    const ping = await db.getDb().command({ ping: 1 });
+    console.log('[DB] Connection OK. Ping result:', ping);
+    return res.json({ ok: true, ping });
+  } catch (err) {
+    console.error('[DB] Connection FAILED:', err);
+    return res.status(500).json({ ok: false, error: String(err) });
+  }
 });

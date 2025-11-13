@@ -26,6 +26,7 @@ function App() {
             <Route path="/discover" element={<DiscoverPage />} />
             <Route path="/random" element={<RandomPage />} />
             <Route path="/auth" element={<AuthPage />} />
+            <Route path="/api/test" element={<div>API Test Endpoint</div>} />
           </Routes>
         </div>
       </div>
