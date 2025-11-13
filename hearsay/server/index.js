@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import session from 'express-session';
 import MongoStore from 'connect-mongo';
+import { ObjectId } from 'mongodb';
 import * as db from './dbAPI.js';
 
 // Load .env in development so server can read GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET
@@ -31,6 +32,15 @@ await db.connectMongo().catch((err) => {
   console.error('[DB] Initial connection failed for sessions:', err);
   process.exit(1);
 });
+
+// Try to ensure user uniqueness constraints; if this fails due to existing duplicates,
+// we'll log a helpful message but won't crash the server.
+try {
+  await db.ensureUserIndexes();
+} catch (e) {
+  console.warn('[DB] Could not ensure user indexes (likely due to duplicates).', e?.message || e);
+  console.warn('[DB] To fix duplicates, run: npm run db:dedupe-users');
+}
 
 // Sessions backed by MongoDB
 app.use(
@@ -158,13 +168,67 @@ app.post('/api/auth/google/exchange', async (req, res) => {
       console.warn('[SERVER] Failed to fetch Google userinfo', e);
     }
 
-    // Attach to session (minimal fields only)
+    // Upsert application user following your Users schema
+    let firstname = profile?.given_name || '';
+    let lastname = profile?.family_name || '';
+    if ((!firstname || !lastname) && profile?.name) {
+      const parts = String(profile.name).trim().split(' ');
+      if (!firstname && parts.length) firstname = parts[0];
+      if (!lastname && parts.length > 1) lastname = parts.slice(1).join(' ');
+    }
+
+    const usersCol = db.Users.collection();
+    const filter = {
+      $or: [
+        { email: profile?.email || null },
+        { 'accounts.kind': 'Google', 'accounts.uid': profile?.sub || null },
+      ],
+    };
+
+    const googleAccount = { kind: 'Google', uid: profile?.sub || '' };
+
+    // Atomic upsert to avoid duplicate inserts under concurrent requests.
+    let userDoc = null;
+    try {
+      const res = await usersCol.findOneAndUpdate(
+        filter,
+        {
+          $set: {
+            email: profile?.email || '',
+            firstname: firstname || '',
+            lastname: lastname || '',
+          },
+          // Add Google account if not already present. Safe for existing docs.
+          $addToSet: { accounts: googleAccount },
+          // Only set defaults on first insert; don't duplicate any fields set above
+          $setOnInsert: { createdAt: new Date() },
+        },
+        { upsert: true, returnDocument: 'after' }
+      );
+      userDoc = res.value;
+      if (!userDoc) {
+        // In rare cases, attempt a direct read using the same filter
+        userDoc = await usersCol.findOne(filter);
+      }
+    } catch (e) {
+      // If uniqueness constraints triggered during a race, read the existing doc
+      if (e && (e.code === 11000 || /duplicate key/i.test(String(e)))) {
+        userDoc = await usersCol.findOne(filter);
+      } else {
+        throw e;
+      }
+    }
+
+    // Attach to session (minimal fields + DB id)
     req.session.user = {
+      oid: userDoc?._id?.toString?.(),
       provider: 'google',
       sub: profile?.sub,
-      email: profile?.email,
+      email: userDoc?.email || profile?.email,
       name: profile?.name,
       picture: profile?.picture,
+      firstname: userDoc?.firstname || firstname,
+      lastname: userDoc?.lastname || lastname,
     };
     req.session.oauth = {
       provider: 'google',

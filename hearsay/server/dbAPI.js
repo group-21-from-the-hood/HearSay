@@ -163,11 +163,48 @@ try{
      }
 }
 
+// Create helpful unique indexes to prevent duplicate user documents
+export async function ensureUserIndexes() {
+  await connectMongo();
+  const users = collection('users');
+  try {
+    await users.createIndex(
+      { email: 1 },
+      {
+        unique: true,
+        // Only enforce uniqueness when email is a string (skip missing/null)
+        partialFilterExpression: { email: { $type: 'string' } },
+        name: 'uniq_email_if_string',
+      }
+    );
+  } catch (e) {
+    console.warn('[DB] ensureUserIndexes email index warning:', e.message || e);
+  }
+
+  try {
+    await users.createIndex(
+      { 'accounts.kind': 1, 'accounts.uid': 1 },
+      {
+        unique: true,
+        // Enforce only when both kind and uid are strings
+        partialFilterExpression: {
+          'accounts.uid': { $type: 'string' },
+          'accounts.kind': { $type: 'string' },
+        },
+        name: 'uniq_account_kind_uid',
+      }
+    );
+  } catch (e) {
+    console.warn('[DB] ensureUserIndexes accounts index warning:', e.message || e);
+  }
+}
+
 export default {
   connectMongo,
   getDb,
   closeMongo,
   initDb,
+  ensureUserIndexes,
   CRUD,
   Albums,
   Artists,

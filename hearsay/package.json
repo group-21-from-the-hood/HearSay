@@ -8,6 +8,7 @@
     "build": "vite build",
     "server": "node server/index.js",
     "dev:all": "concurrently \"npm run server\" \"npm run dev\"",
+    "db:dedupe-users": "node server/scripts/dedupe-users.mjs",
     "lint": "eslint .",
     "preview": "vite preview"
   },
