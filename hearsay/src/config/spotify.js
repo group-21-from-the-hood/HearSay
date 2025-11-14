@@ -32,6 +32,9 @@ export async function getSpotifyArtistAlbums(id, params = {}) { return apiGet(`/
 export async function getSpotifyNewReleases(params = {}) { return apiGet('/api/spotify/new-releases', params); }
 export async function getSpotifyRecommendations(params = {}) { return apiGet('/api/spotify/recommendations', params); }
 
+// Saved app data: prefer DB before hitting Spotify
+export async function getSavedArtist(id) { return apiGet(`/api/artists/${id}`); }
+
 export default {
   searchSpotify,
   getSpotifyTrack,
@@ -41,4 +44,5 @@ export default {
   getSpotifyArtistAlbums,
   getSpotifyNewReleases,
   getSpotifyRecommendations,
+  getSavedArtist,
 };

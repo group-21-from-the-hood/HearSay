@@ -1,80 +1,115 @@
 {
-  "$jsonSchema": {
-    "bsonType": "object",
-    "required": [
-      "_id",
-      "artist",
-      "dislikes",
-      "genre",
-      "likes",
-      "name",
-      "rating",
-      "releaseDate",
-      "review",
-      "songs",
-      "spotifyAlbumId"
-    ],
-    "properties": {
-      "_id": {
-        "bsonType": "objectId"
-      },
-      "artist": {
-        "bsonType": "object",
-        "properties": {
-          "oid": {
-            "bsonType": "string"
-          }
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "_id",
+    "artist",
+    "dislikes",
+    "genre",
+    "image",
+    "likes",
+    "name",
+    "releaseDate",
+    "reviews",
+    "songs",
+    "spotifyAlbumId"
+  ],
+  "properties": {
+    "_id": {
+      "$ref": "#/$defs/ObjectId"
+    },
+    "artist": {
+      "type": "object",
+      "required": [
+        "name",
+        "oid"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
         },
+        "oid": {
+          "type": "string"
+        }
+      }
+    },
+    "dislikes": {
+      "type": "string"
+    },
+    "genre": {
+      "type": "array",
+      "items": {
+        "type": []
+      }
+    },
+    "image": {
+      "type": "string"
+    },
+    "likes": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "rating": {
+      "type": "string"
+    },
+    "releaseDate": {
+      "type": "string"
+    },
+    "reviews": {
+      "type": "array",
+      "items": {
+        "type": "object",
         "required": [
-          "oid"
-        ]
-      },
-      "dislikes": {
-        "bsonType": "string"
-      },
-      "genre": {
-        "bsonType": "array"
-      },
-      "likes": {
-        "bsonType": "string"
-      },
-      "name": {
-        "bsonType": "string"
-      },
-      "rating": {
-        "bsonType": "string"
-      },
-      "releaseDate": {
-        "bsonType": "string"
-      },
-      "review": {
-        "bsonType": "object",
+          "review_oid",
+          "user_oid"
+        ],
         "properties": {
-          "oid": {
-            "bsonType": "string"
-          }
-        },
-        "required": [
-          "oid"
-        ]
-      },
-      "songs": {
-        "bsonType": "array",
-        "items": {
-          "bsonType": "object",
-          "properties": {
-            "oid": {
-              "bsonType": "string"
-            }
+          "review_oid": {
+            "type": "string"
           },
-          "required": [
-            "oid"
-          ]
+          "user_oid": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "songs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "oid"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "oid": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "spotifyAlbumId": {
+      "type": "string"
+    }
+  },
+  "$defs": {
+    "ObjectId": {
+      "type": "object",
+      "properties": {
+        "$oid": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{24}$"
         }
       },
-      "spotifyAlbumId": {
-        "bsonType": "string"
-      }
+      "required": [
+        "$oid"
+      ],
+      "additionalProperties": false
     }
   }
 }

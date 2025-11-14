@@ -4,6 +4,7 @@ import { getSpotifyTrack } from '../config/spotify';
 import { upsertReview, getMyReview, deleteMyReview } from '../config/reviews';
 import { useTheme } from '../context/ThemeContext';
 import HeadphoneRating from './HeadphoneRating';
+import { useToast } from '../context/ToastContext';
 import { sanitizeInput, sanitizeRating } from '../utils/sanitize';
 
 const SONG_REVIEW_WORD_LIMIT = 1000;
@@ -18,6 +19,9 @@ export default function SongRatingPage() {
   const [review, setReview] = useState('');
   const [isEditingReview, setIsEditingReview] = useState(false);
   const [isEditingRating, setIsEditingRating] = useState(false);
+  const [hasSavedReview, setHasSavedReview] = useState(false);
+  const [hasSavedRating, setHasSavedRating] = useState(false);
+  const { success } = useToast();
 
   // Calculate word count
   const wordCount = review.trim().split(/\s+/).filter(word => word.length > 0).length;
@@ -63,6 +67,10 @@ export default function SongRatingPage() {
           if (typeof existing.text === 'string') setReview(existing.text);
           setIsEditingReview(false);
           setIsEditingRating(false);
+          const saved = !!(existing && typeof existing.text === 'string' && existing.text.trim().length > 0);
+          setHasSavedReview(saved);
+          const savedRating = !!(existing && typeof existing.rating === 'number' && existing.rating > 0);
+          setHasSavedRating(savedRating);
         }
       } catch (e) {
         // Not logged in or no review yet; ignore
@@ -85,8 +93,9 @@ export default function SongRatingPage() {
     } else {
       try {
         await upsertReview({ type: 'song', oid: songId, rating: sanitizedRating });
-        alert(`Rating of ${sanitizedRating}/5 ${isEditingRating ? 'updated' : 'submitted'}!`);
         setIsEditingRating(false);
+        setHasSavedRating(true);
+        success('Rating saved');
       } catch (e) {
         if (String(e.message).includes('unauthorized')) {
           alert('Please sign in to submit a rating.');
@@ -107,8 +116,9 @@ export default function SongRatingPage() {
     } else {
       try {
         await upsertReview({ type: 'song', oid: songId, text: sanitizedReview });
-        alert(isEditingReview ? 'Review updated!' : 'Review submitted!');
         setIsEditingReview(false);
+        setHasSavedReview(true);
+        success('Review saved');
       } catch (e) {
         if (String(e.message).includes('unauthorized')) {
           alert('Please sign in to submit a review.');
@@ -141,6 +151,8 @@ export default function SongRatingPage() {
         alert('Your review was deleted.');
         setIsEditingReview(false);
         setIsEditingRating(false);
+        setHasSavedReview(false);
+        setHasSavedRating(false);
       } else {
         alert('No existing review to delete.');
       }
@@ -201,7 +213,8 @@ export default function SongRatingPage() {
               <h2 className="font-semibold mb-4">
                 <span className="text-black dark:text-white">Review</span>
               </h2>
-              {review.trim().length > 0 && !isEditingReview ? (
+              
+              {hasSavedReview && !isEditingReview ? (
                 <>
                   <div className="whitespace-pre-wrap border-2 border-black dark:border-white bg-white dark:bg-gray-800 text-black dark:text-white p-2 min-h-[8rem]">
                     {review}
@@ -262,14 +275,15 @@ export default function SongRatingPage() {
               <h2 className="font-semibold mb-4">
                 <span className="text-black dark:text-white">Rating</span>
               </h2>
-              <div className={`flex justify-center mb-4 ${rating > 0 && !isEditingRating ? 'pointer-events-none opacity-90' : ''}`}>
+              
+              <div className={`flex justify-center mb-4 ${hasSavedRating && !isEditingRating ? 'pointer-events-none opacity-90' : ''}`}>
                 <HeadphoneRating
                   value={rating}
                   onChange={setRating}
                   size="medium"
                 />
               </div>
-              {rating > 0 && !isEditingRating ? (
+              {hasSavedRating && !isEditingRating ? (
                 <button
                   onClick={() => setIsEditingRating(true)}
                   className="w-full border-2 border-black dark:border-white py-2 hover:bg-gray-100 dark:hover:bg-gray-800 bg-white dark:bg-gray-900 text-black dark:text-white transition-colors"
@@ -282,7 +296,7 @@ export default function SongRatingPage() {
                     onClick={handleSubmitRating}
                     className="flex-1 border-2 border-black dark:border-white py-2 hover:bg-gray-100 dark:hover:bg-gray-800 bg-white dark:bg-gray-900 text-black dark:text-white transition-colors"
                   >
-                    {rating > 0 ? (isEditingRating ? 'Update Rating' : 'Submit Rating') : 'Submit Rating'}
+                    {hasSavedRating ? (isEditingRating ? 'Update Rating' : 'Submit Rating') : 'Submit Rating'}
                   </button>
                   {isEditingRating && (
                     <button
