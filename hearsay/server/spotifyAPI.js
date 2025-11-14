@@ -86,8 +86,22 @@ export async function getRecommendations(params = {}) {
 
 export async function getTrack(id) { return spotifyGet(`/tracks/${id}`); }
 export async function getAlbum(id) { return spotifyGet(`/albums/${id}`); }
+export async function getSeveralTracks(ids = [], market) {
+  const arr = Array.isArray(ids) ? ids.filter(Boolean) : String(ids || '').split(',').map(s => s.trim()).filter(Boolean);
+  if (!arr.length) return { status: 400, error: 'no_ids' };
+  const params = { ids: arr.join(',') };
+  if (market) params.market = market;
+  return spotifyGet('/tracks', params);
+}
+export async function getSeveralAlbums(ids = [], market) {
+  const arr = Array.isArray(ids) ? ids.filter(Boolean) : String(ids || '').split(',').map(s => s.trim()).filter(Boolean);
+  if (!arr.length) return { status: 400, error: 'no_ids' };
+  const params = { ids: arr.join(',') };
+  if (market) params.market = market;
+  return spotifyGet('/albums', params);
+}
 export async function getArtist(id) { return spotifyGet(`/artists/${id}`); }
 
 export function _debugTokenCache() { return { ...tokenCache }; }
 
-export default { search, getTrack, getAlbum, getArtist, getArtistAlbums, getNewReleases, getRecommendations };
+export default { search, getTrack, getSeveralTracks, getAlbum, getSeveralAlbums, getArtist, getArtistAlbums, getNewReleases, getRecommendations };

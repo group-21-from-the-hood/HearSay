@@ -20,6 +20,13 @@ export async function searchSpotify(q, type = 'track', limit = 10, market) {
 }
 export async function getSpotifyTrack(id) { return apiGet(`/api/spotify/track/${id}`); }
 export async function getSpotifyAlbum(id) { return apiGet(`/api/spotify/album/${id}`); }
+export async function getSpotifyAlbums(ids = [], market) {
+  const arr = Array.isArray(ids) ? ids.filter(Boolean) : String(ids || '').split(',').map(s => s.trim()).filter(Boolean);
+  if (!arr.length) throw new Error('Spotify request failed: "no_ids"');
+  const params = { ids: arr.join(',') };
+  if (market) params.market = market;
+  return apiGet('/api/spotify/albums', params);
+}
 export async function getSpotifyArtist(id) { return apiGet(`/api/spotify/artist/${id}`); }
 export async function getSpotifyArtistAlbums(id, params = {}) { return apiGet(`/api/spotify/artist/${id}/albums`, params); }
 export async function getSpotifyNewReleases(params = {}) { return apiGet('/api/spotify/new-releases', params); }
@@ -29,6 +36,7 @@ export default {
   searchSpotify,
   getSpotifyTrack,
   getSpotifyAlbum,
+  getSpotifyAlbums,
   getSpotifyArtist,
   getSpotifyArtistAlbums,
   getSpotifyNewReleases,

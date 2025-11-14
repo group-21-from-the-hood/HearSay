@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { getSpotifyAlbum } from '../config/spotify';
+import { upsertReview, getMyReview, deleteMyReview } from '../config/reviews';
 import { useTheme } from '../context/ThemeContext';
 import HeadphoneRating from './HeadphoneRating';
 import { sanitizeInput, sanitizeRating } from '../utils/sanitize';
 
-const ALBUM_REVIEW_WORD_LIMIT = 800;
+const ALBUM_REVIEW_WORD_LIMIT = 1000;
 
 export default function AlbumRatingPage() {
   const { albumId } = useParams();
@@ -17,6 +18,9 @@ export default function AlbumRatingPage() {
   const [relatedAlbums, setRelatedAlbums] = useState([]);
   const [loading, setLoading] = useState(true);
   const [review, setReview] = useState('');
+  const [albumRating, setAlbumRating] = useState(0);
+  const [isEditingReview, setIsEditingReview] = useState(false);
+  const [isEditingRating, setIsEditingRating] = useState(false);
 
   // Calculate word count
   const wordCount = review.trim().split(/\s+/).filter(word => word.length > 0).length;
@@ -62,6 +66,25 @@ export default function AlbumRatingPage() {
     fetchAlbumData();
   }, [albumId]);
 
+  // Load existing review (text + rating) for this album for the current user
+  useEffect(() => {
+    const loadMyReview = async () => {
+      if (!albumId) return;
+      try {
+        const existing = await getMyReview('album', albumId);
+        if (existing) {
+          if (typeof existing.text === 'string') setReview(existing.text);
+          if (typeof existing.rating === 'number') setAlbumRating(existing.rating);
+          setIsEditingReview(false);
+          setIsEditingRating(false);
+        }
+      } catch (e) {
+        // Not logged in or no review; ignore
+      }
+    };
+    loadMyReview();
+  }, [albumId]);
+
   const handleTrackRating = (trackId, rating) => {
     const sanitizedRating = sanitizeRating(rating);
     setTrackRatings(prev => ({
@@ -87,7 +110,7 @@ export default function AlbumRatingPage() {
     alert('Ratings submitted! (This will save to database in the future)');
   };
 
-  const handleSubmitReview = () => {
+  const handleSubmitReview = async () => {
     const sanitizedReview = sanitizeInput(review);
     
     console.log('Album review:', {
@@ -102,7 +125,38 @@ export default function AlbumRatingPage() {
     } else if (wordCount > ALBUM_REVIEW_WORD_LIMIT) {
       alert(`Review exceeds ${ALBUM_REVIEW_WORD_LIMIT} word limit. Please shorten your review.`);
     } else {
-      alert('Review submitted! (This will save to database in the future)');
+      try {
+        await upsertReview({ type: 'album', oid: albumId, text: sanitizedReview, rating: albumRating ? sanitizeRating(albumRating) : undefined });
+        alert(isEditingReview ? 'Review updated!' : 'Review submitted!');
+        setIsEditingReview(false);
+      } catch (e) {
+        if (String(e.message).includes('unauthorized')) {
+          alert('Please sign in to submit a review.');
+        } else if (String(e.message).includes('text_too_long')) {
+          alert(`Review exceeds ${ALBUM_REVIEW_WORD_LIMIT} words.`);
+        } else {
+          alert('Failed to submit review. Please try again.');
+        }
+      }
+    }
+  };
+
+  const handleSubmitAlbumRating = async () => {
+    const sanitized = sanitizeRating(albumRating);
+    if (sanitized === 0) {
+      alert('Please select a rating before submitting!');
+      return;
+    }
+    try {
+      await upsertReview({ type: 'album', oid: albumId, rating: sanitized });
+      alert(`Album rating of ${sanitized}/5 ${isEditingRating ? 'updated' : 'submitted'}!`);
+      setIsEditingRating(false);
+    } catch (e) {
+      if (String(e.message).includes('unauthorized')) {
+        alert('Please sign in to submit a rating.');
+      } else {
+        alert('Failed to submit rating. Please try again.');
+      }
     }
   };
 
@@ -113,6 +167,28 @@ export default function AlbumRatingPage() {
     // Only update if within word limit
     if (newWordCount <= ALBUM_REVIEW_WORD_LIMIT || newText.length < review.length) {
       setReview(newText);
+    }
+  };
+
+  const handleDeleteAlbumReview = async () => {
+    if (!albumId) return;
+    try {
+      const deleted = await deleteMyReview('album', albumId);
+      if (deleted) {
+        setReview('');
+        setAlbumRating(0);
+        alert('Your review was deleted.');
+        setIsEditingReview(false);
+        setIsEditingRating(false);
+      } else {
+        alert('No existing review to delete.');
+      }
+    } catch (e) {
+      if (String(e.message).includes('unauthorized')) {
+        alert('Please sign in to delete your review.');
+      } else {
+        alert('Failed to delete review. Please try again.');
+      }
     }
   };
 
@@ -142,7 +218,7 @@ export default function AlbumRatingPage() {
             </div>
           </div>
 
-          {/* Middle Column - Player and Review */}
+          {/* Middle Column - Player, Review, Album Rating */}
           <div className="lg:col-span-5">
             {/* Embedded Player */}
             <div className="border-2 border-black dark:border-white overflow-hidden mb-4" style={{ backgroundColor: theme === 'dark' ? '#121212' : '#ffffff' }}>
@@ -165,24 +241,97 @@ export default function AlbumRatingPage() {
               <h2 className="font-semibold mb-4">
                 <span className="text-black dark:text-white">Review</span>
               </h2>
-              <div className="relative">
-                <textarea 
-                  value={review}
-                  onChange={handleReviewChange}
-                  className="w-full h-32 border-2 border-black dark:border-white bg-white dark:bg-gray-800 text-black dark:text-white p-2 pb-6 resize-none"
-                  placeholder="Write your review here..."
-                  maxLength={10000}
+              {review.trim().length > 0 && !isEditingReview ? (
+                <>
+                  <div className="whitespace-pre-wrap border-2 border-black dark:border-white bg-white dark:bg-gray-800 text-black dark:text-white p-2 min-h-[8rem]">
+                    {review}
+                  </div>
+                  <button
+                    onClick={() => setIsEditingReview(true)}
+                    className="w-full mt-4 border-2 border-black dark:border-white py-2 hover:bg-gray-100 dark:hover:bg-gray-800 bg-white dark:bg-gray-900 text-black dark:text-white transition-colors"
+                  >
+                    Edit Review
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div className="relative">
+                    <textarea 
+                      value={review}
+                      onChange={handleReviewChange}
+                      className="w-full h-32 border-2 border-black dark:border-white bg-white dark:bg-gray-800 text-black dark:text-white p-2 pb-6 resize-none"
+                      placeholder="Write your review here..."
+                      maxLength={10000}
+                    />
+                    <div className="absolute bottom-2 right-2 text-xs italic text-gray-500 dark:text-gray-400">
+                      {remainingWords} {remainingWords === 1 ? 'word' : 'words'} remaining
+                    </div>
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-2 mt-4">
+                    <button 
+                      onClick={handleSubmitReview}
+                      className="flex-1 border-2 border-black dark:border-white py-2 hover:bg-gray-100 dark:hover:bg-gray-800 bg-white dark:bg-gray-900 text-black dark:text-white transition-colors"
+                    >
+                      {review.trim().length > 0 ? (isEditingReview ? 'Save Review' : 'Submit Review') : 'Submit Review'}
+                    </button>
+                    {isEditingReview && (
+                      <>
+                        <button
+                          onClick={() => setIsEditingReview(false)}
+                          className="flex-1 border-2 border-gray-400 dark:border-gray-500 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 bg-white dark:bg-gray-900 text-black dark:text-white transition-colors"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={handleDeleteAlbumReview}
+                          className="flex-1 border-2 border-red-600 text-red-700 dark:text-red-400 dark:border-red-500 py-2 hover:bg-red-50 dark:hover:bg-red-900/20 bg-white dark:bg-gray-900 transition-colors"
+                        >
+                          Delete Review
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Album Rating */}
+            <div className="border-2 border-black dark:border-white p-4 mt-6 bg-white dark:bg-gray-900 text-black dark:text-white">
+              <h2 className="font-semibold mb-4">
+                <span className="text-black dark:text-white">Album Rating</span>
+              </h2>
+              <div className={`flex justify-center mb-4 ${albumRating > 0 && !isEditingRating ? 'pointer-events-none opacity-90' : ''}`}>
+                <HeadphoneRating
+                  value={albumRating}
+                  onChange={setAlbumRating}
+                  size="medium"
                 />
-                <div className="absolute bottom-2 right-2 text-xs italic text-gray-500 dark:text-gray-400">
-                  {remainingWords} {remainingWords === 1 ? 'word' : 'words'} remaining
-                </div>
               </div>
-              <button 
-                onClick={handleSubmitReview}
-                className="w-full mt-4 border-2 border-black dark:border-white py-2 hover:bg-gray-100 dark:hover:bg-gray-800 bg-white dark:bg-gray-900 text-black dark:text-white transition-colors"
-              >
-                Submit Review
-              </button>
+              {albumRating > 0 && !isEditingRating ? (
+                <button
+                  onClick={() => setIsEditingRating(true)}
+                  className="w-full border-2 border-black dark:border-white py-2 hover:bg-gray-100 dark:hover:bg-gray-800 bg-white dark:bg-gray-900 text-black dark:text-white transition-colors"
+                >
+                  Edit Rating
+                </button>
+              ) : (
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <button
+                    onClick={handleSubmitAlbumRating}
+                    className="flex-1 border-2 border-black dark:border-white py-2 hover:bg-gray-100 dark:hover:bg-gray-800 bg-white dark:bg-gray-900 text-black dark:text-white transition-colors"
+                  >
+                    {albumRating > 0 ? (isEditingRating ? 'Update Rating' : 'Submit Album Rating') : 'Submit Album Rating'}
+                  </button>
+                  {isEditingRating && (
+                    <button
+                      onClick={() => setIsEditingRating(false)}
+                      className="flex-1 border-2 border-gray-400 dark:border-gray-500 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 bg-white dark:bg-gray-900 text-black dark:text-white transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
@@ -198,7 +347,12 @@ export default function AlbumRatingPage() {
                     <div key={track.id} className="flex flex-col gap-1 py-2 border-b border-black dark:border-white last:border-0">
                       <div className="flex items-center gap-2">
                         <span className="w-6 text-gray-500 dark:text-gray-400 text-sm">{track.trackNumber}</span>
-                        <span className="flex-1 text-sm truncate">{track.name}</span>
+                        <Link
+                          to={`/song/${track.id}`}
+                          className="flex-1 text-sm truncate text-black dark:text-white hover:underline"
+                        >
+                          {track.name}
+                        </Link>
                         <span className="text-gray-500 dark:text-gray-400 text-xs">{formatDuration(track.duration)}</span>
                       </div>
                       <div className="ml-8">

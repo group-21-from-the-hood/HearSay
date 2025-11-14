@@ -3,7 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import session from 'express-session';
 import MongoStore from 'connect-mongo';
-import { ObjectId } from 'mongodb';
+import { ObjectId, Int32 } from 'mongodb';
 import * as db from './dbAPI.js';
 import * as spotify from './spotifyAPI.js';
 
@@ -38,6 +38,7 @@ await db.connectMongo().catch((err) => {
 // we'll log a helpful message but won't crash the server.
 try {
   await db.ensureUserIndexes();
+  await db.ensureReviewIndexes();
 } catch (e) {
   console.warn('[DB] Could not ensure user indexes (likely due to duplicates).', e?.message || e);
   console.warn('[DB] To fix duplicates, run: npm run db:dedupe-users');
@@ -356,6 +357,59 @@ app.get('/api/spotify/album/:id', async (req, res) => {
   }
 });
 
+// Batch several tracks (up to 50 per Spotify request); chunks if more supplied
+app.get('/api/spotify/tracks', async (req, res) => {
+  try {
+    const idsParam = req.query.ids;
+    if (!idsParam) return res.status(400).json({ ok: false, error: 'missing_ids' });
+    const market = req.query.market;
+    const allIds = String(idsParam).split(',').map(s => s.trim()).filter(Boolean);
+    if (!allIds.length) return res.status(400).json({ ok: false, error: 'no_ids' });
+    const responses = [];
+    for (let i = 0; i < allIds.length; i += 50) {
+      const chunk = allIds.slice(i, i + 50);
+      const r = await spotify.getSeveralTracks(chunk, market);
+      if (r.error && !r.data) return res.status(r.status || 500).json({ ok: false, error: r.error });
+      const tracks = Array.isArray(r.data?.tracks) ? r.data.tracks : [];
+      responses.push(...tracks);
+    }
+    return res.json({ ok: true, data: { tracks: responses } });
+  } catch (e) {
+    console.error('[Spotify] several tracks error', e);
+    return res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
+// Batch several albums (up to 20 per Spotify request); accepts any number by chunking
+app.get('/api/spotify/albums', async (req, res) => {
+  try {
+    const idsParam = req.query.ids;
+    if (!idsParam) return res.status(400).json({ ok: false, error: 'missing_ids' });
+    const market = req.query.market;
+    const allIds = String(idsParam)
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean);
+    if (!allIds.length) return res.status(400).json({ ok: false, error: 'no_ids' });
+
+    // Chunk to 20 per Spotify API limitations
+    const chunks = [];
+    for (let i = 0; i < allIds.length; i += 20) chunks.push(allIds.slice(i, i + 20));
+
+    const responses = [];
+    for (const chunk of chunks) {
+      const r = await spotify.getSeveralAlbums(chunk, market);
+      if (r.error && !r.data) return res.status(r.status || 500).json({ ok: false, error: r.error });
+      const albums = Array.isArray(r.data?.albums) ? r.data.albums : [];
+      responses.push(...albums);
+    }
+    return res.json({ ok: true, data: { albums: responses } });
+  } catch (e) {
+    console.error('[Spotify] several albums error', e);
+    return res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
 app.get('/api/spotify/artist/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -405,6 +459,317 @@ app.get('/api/spotify/recommendations', async (req, res) => {
     return res.json({ ok: true, data: result.data });
   } catch (e) {
     console.error('[Spotify] recommendations error', e);
+    return res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
+// ---------------- Reviews Endpoints ----------------
+// Upsert a review for the current user and item (song/album/artist)
+app.post('/api/reviews/upsert', async (req, res) => {
+  try {
+    const userOid = req.session?.user?.oid;
+    if (!userOid) return res.status(401).json({ ok: false, error: 'unauthorized' });
+
+    const { type, oid, rating, text } = req.body || {};
+    const allowed = new Set(['song', 'album', 'artist']);
+    if (!allowed.has(String(type))) return res.status(400).json({ ok: false, error: 'invalid_type' });
+    if (!oid || typeof oid !== 'string') return res.status(400).json({ ok: false, error: 'invalid_oid' });
+
+    // Normalize inputs (support 0.5 increments). incoming rating expected 0.5..5
+    let normRating = Number.isFinite(rating) ? Number(rating) : undefined;
+    if (!(normRating >= 0.5 && normRating <= 5)) normRating = undefined; // treat out-of-range as undefined
+    // Snap to nearest 0.5 step
+    if (normRating !== undefined) normRating = Math.round(normRating * 2) / 2;
+    let normText = typeof text === 'string' ? String(text).trim() : undefined;
+
+    // Enforce max 1000 words for text if provided
+    if (normText) {
+      const words = normText.trim().split(/\s+/).filter(Boolean);
+      if (words.length > 1000) return res.status(400).json({ ok: false, error: 'text_too_long', maxWords: 1000 });
+    }
+    if (normRating === undefined && (!normText || normText.length === 0)) {
+      return res.status(400).json({ ok: false, error: 'empty_review' });
+    }
+
+    const reviews = db.Reviews.collection();
+    const filter = { 'user.oid': userOid, 'item.type': type, 'item.oid': oid };
+    const nowIso = new Date().toISOString();
+    // Build update ensuring we don't overwrite text unless provided.
+    const setFields = { updatedAt: nowIso };
+    if (normRating !== undefined) setFields.rating = new Int32(Math.round(normRating * 2)); // store scaled (x2)
+    if (normText !== undefined) setFields.text = normText;
+    const setOnInsertFields = {
+      createdAt: nowIso,
+      user: { oid: userOid },
+      item: { type, oid },
+      likes: new Int32(0),
+      dislikes: new Int32(0),
+      comments: [],
+      type: String(type),
+    };
+    // If inserting without provided text, satisfy schema with empty string
+    if (normText === undefined) setOnInsertFields.text = '';
+    // If inserting without a provided rating, ensure a default rating field exists
+    if (normRating === undefined) setOnInsertFields.rating = new Int32(0); // 0 represents no rating yet
+    const update = { $set: setFields, $setOnInsert: setOnInsertFields };
+
+    const result = await reviews.findOneAndUpdate(filter, update, { upsert: true, returnDocument: 'after' });
+    const doc = result.value || (await reviews.findOne(filter));
+    // Ensure user's profile records this review's ObjectId
+    try {
+      const usersCol = db.Users.collection();
+      await usersCol.updateOne(
+        { _id: new ObjectId(userOid) },
+        { $addToSet: { reviewIds: doc?._id } }
+      );
+    } catch (e) {
+      console.warn('[Reviews] Failed to add reviewId to user profile', e?.message || e);
+    }
+    // Scale rating back down for response
+    if (doc && typeof doc.rating === 'number') doc.rating = doc.rating / 2;
+    return res.json({ ok: true, review: doc });
+  } catch (e) {
+    if (e && (e.code === 11000 || /duplicate key/i.test(String(e)))) {
+      // Unique index collision under race: retry a simple update
+      try {
+        const { type, oid, rating, text } = req.body || {};
+        const userOid = req.session?.user?.oid;
+        const reviews = db.Reviews.collection();
+        const filter = { 'user.oid': userOid, 'item.type': type, 'item.oid': oid };
+        const nowIso = new Date().toISOString();
+        const set = { updatedAt: nowIso };
+        if (typeof text === 'string') set.text = String(text).trim();
+        if (Number.isFinite(rating) && rating >= 0.5 && rating <= 5) {
+          const snapped = Math.round(rating * 2) / 2;
+          set.rating = new Int32(Math.round(snapped * 2));
+        }
+        await reviews.updateOne(filter, { $set: set });
+        const doc = await reviews.findOne(filter);
+        try {
+          const usersCol = db.Users.collection();
+          await usersCol.updateOne(
+            { _id: new ObjectId(userOid) },
+            { $addToSet: { reviewIds: doc?._id } }
+          );
+        } catch (e3) {
+          console.warn('[Reviews] Retry path: failed to add reviewId to user profile', e3?.message || e3);
+        }
+        if (doc && typeof doc.rating === 'number') doc.rating = doc.rating / 2;
+        return res.json({ ok: true, review: doc });
+      } catch (e2) {
+        console.error('[Reviews] upsert retry failed', e2);
+      }
+    }
+    console.error('[Reviews] upsert error', e);
+    return res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
+// Delete current user's review for an item and remove from user profile list
+app.delete('/api/reviews/my', async (req, res) => {
+  try {
+    const userOid = req.session?.user?.oid;
+    if (!userOid) return res.status(401).json({ ok: false, error: 'unauthorized' });
+    const type = req.query?.type || req.body?.type;
+    const oid = req.query?.oid || req.body?.oid;
+    const allowed = new Set(['song', 'album', 'artist']);
+    if (!allowed.has(String(type))) return res.status(400).json({ ok: false, error: 'invalid_type' });
+    if (!oid || typeof oid !== 'string') return res.status(400).json({ ok: false, error: 'invalid_oid' });
+
+    const reviews = db.Reviews.collection();
+    const filter = { 'user.oid': userOid, 'item.type': type, 'item.oid': oid };
+    const deleted = await reviews.findOneAndDelete(filter);
+    const deletedDoc = deleted?.value || null;
+    if (!deletedDoc) return res.json({ ok: true, deleted: false });
+
+    try {
+      const usersCol = db.Users.collection();
+      await usersCol.updateOne(
+        { _id: new ObjectId(userOid) },
+        { $pull: { reviewIds: deletedDoc._id } }
+      );
+    } catch (e) {
+      console.warn('[Reviews] Failed to pull reviewId from user profile on delete', e?.message || e);
+    }
+    return res.json({ ok: true, deleted: true });
+  } catch (e) {
+    console.error('[Reviews] delete my review error', e);
+    return res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
+// Get current user's review for an item
+app.get('/api/reviews/my', async (req, res) => {
+  try {
+    const userOid = req.session?.user?.oid;
+    if (!userOid) return res.status(401).json({ ok: false, error: 'unauthorized' });
+    const { type, oid } = req.query;
+    const allowed = new Set(['song', 'album', 'artist']);
+    if (!allowed.has(String(type))) return res.status(400).json({ ok: false, error: 'invalid_type' });
+    if (!oid || typeof oid !== 'string') return res.status(400).json({ ok: false, error: 'invalid_oid' });
+    const reviews = db.Reviews.collection();
+    const doc = await reviews.findOne({ 'user.oid': userOid, 'item.type': type, 'item.oid': oid });
+    if (doc && typeof doc.rating === 'number') doc.rating = doc.rating / 2;
+    return res.json({ ok: true, review: doc || null });
+  } catch (e) {
+    console.error('[Reviews] get my error', e);
+    return res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
+// List current user's reviews (paginated) with media metadata
+app.get('/api/reviews/my/list', async (req, res) => {
+  try {
+    const userOid = req.session?.user?.oid;
+    if (!userOid) return res.status(401).json({ ok: false, error: 'unauthorized' });
+    const limit = Math.max(1, Math.min(parseInt(req.query.limit, 10) || 5, 20));
+    const offset = Math.max(0, parseInt(req.query.offset, 10) || 0);
+
+    const reviewsCol = db.Reviews.collection();
+    const cursor = reviewsCol
+      .find({ 'user.oid': userOid })
+      .project({ item: 1, text: 1, rating: 1, createdAt: 1, updatedAt: 1 })
+      .sort({ updatedAt: -1, _id: -1 })
+      .skip(offset)
+      .limit(limit);
+
+    const docs = await cursor.toArray();
+    if (!docs.length) return res.json({ ok: true, total: 0, items: [], nextOffset: null });
+
+    const songIds = [];
+    const albumIds = [];
+    const artistIds = [];
+    for (const d of docs) {
+      const t = d?.item?.type;
+      const id = d?.item?.oid;
+      if (!id || !t) continue;
+      if (t === 'song') songIds.push(id);
+      else if (t === 'album') albumIds.push(id);
+      else if (t === 'artist') artistIds.push(id);
+    }
+
+    const songMap = new Map();
+    const albumMap = new Map();
+    const artistMap = new Map();
+
+    if (songIds.length) {
+      const r = await spotify.getSeveralTracks(songIds.slice(0, 50));
+      if (r?.data?.tracks) {
+        for (const t of r.data.tracks) {
+          if (!t) continue;
+          songMap.set(t.id, {
+            title: t.name,
+            coverArt: t.album?.images?.[0]?.url,
+            route: `/song/${t.id}`,
+          });
+        }
+      }
+    }
+    if (albumIds.length) {
+      const r = await spotify.getSeveralAlbums(albumIds.slice(0, 20));
+      if (r?.data?.albums) {
+        for (const a of r.data.albums) {
+          if (!a) continue;
+          albumMap.set(a.id, {
+            title: a.name,
+            coverArt: a.images?.[0]?.url,
+            route: `/album/${a.id}`,
+          });
+        }
+      }
+    }
+    if (artistIds.length) {
+      // No several-artists helper; fetch individually (limit small page size)
+      for (const id of artistIds.slice(0, 20)) {
+        try {
+          const r = await spotify.getArtist(id);
+          const a = r?.data;
+          if (a) {
+            artistMap.set(id, {
+              title: a.name,
+              coverArt: a.images?.[0]?.url,
+              route: `/artist/${id}`,
+            });
+          }
+        } catch {}
+      }
+    }
+
+    const items = docs.map(d => {
+      const type = d?.item?.type;
+      const id = d?.item?.oid;
+      let media = null;
+      if (type === 'song') media = songMap.get(id) || null;
+      else if (type === 'album') media = albumMap.get(id) || null;
+      else if (type === 'artist') media = artistMap.get(id) || null;
+      const rating = typeof d.rating === 'number' ? d.rating / 2 : 0;
+      return {
+        id: d._id?.toString?.(),
+        type,
+        oid: id,
+        rating,
+        text: d.text || '',
+        createdAt: d.createdAt,
+        updatedAt: d.updatedAt,
+        media,
+      };
+    });
+
+    // Determine if more exist by counting next slice cheaply
+    const nextOffset = items.length < limit ? null : offset + items.length;
+    return res.json({ ok: true, items, nextOffset });
+  } catch (e) {
+    console.error('[Reviews] list my reviews error', e);
+    return res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
+// Top rated songs for an artist (avg rating desc, then review count desc)
+app.get('/api/reviews/top-songs-for-artist', async (req, res) => {
+  try {
+    const { artistId } = req.query;
+    const limit = parseInt(req.query.limit, 10) || 5;
+    if (!artistId || typeof artistId !== 'string') return res.status(400).json({ ok: false, error: 'invalid_artist' });
+    const reviewsCol = db.Reviews.collection();
+    // Aggregate ratings for songs; limit candidates to reduce track fetch volume
+    const pipeline = [
+      { $match: { 'item.type': 'song', rating: { $type: 'int', $gt: 0 } } },
+      { $group: { _id: '$item.oid', avgRatingScaled: { $avg: '$rating' }, count: { $sum: 1 } } },
+      { $sort: { avgRatingScaled: -1, count: -1 } },
+      { $limit: 300 },
+    ];
+    const aggResults = await reviewsCol.aggregate(pipeline).toArray();
+    if (!aggResults.length) return res.json({ ok: true, songs: [] });
+
+    // Fetch track details in batches and filter by artist
+    const trackIds = aggResults.map(r => r._id);
+    const matched = [];
+    for (let i = 0; i < trackIds.length && matched.length < limit; i += 50) {
+      const chunk = trackIds.slice(i, i + 50);
+      const resp = await spotify.getSeveralTracks(chunk);
+      if (resp.error && !resp.data) continue; // skip failures silently
+      const tracks = Array.isArray(resp.data?.tracks) ? resp.data.tracks : [];
+      for (const t of tracks) {
+        if (!t) continue;
+        const artistMatches = Array.isArray(t.artists) && t.artists.some(a => a?.id === artistId);
+        if (!artistMatches) continue;
+        const agg = aggResults.find(r => r._id === t.id);
+        if (!agg) continue;
+        matched.push({
+          id: t.id,
+          title: t.name,
+          artists: (t.artists || []).map(a => a.name).filter(Boolean),
+          coverArt: t.album?.images?.[0]?.url,
+          avgRating: Number((agg.avgRatingScaled / 2).toFixed(2)),
+          reviewCount: agg.count,
+          spotifyUrl: t.external_urls?.spotify,
+        });
+        if (matched.length >= limit) break;
+      }
+    }
+    return res.json({ ok: true, songs: matched });
+  } catch (e) {
+    console.error('[Reviews] top songs for artist error', e);
     return res.status(500).json({ ok: false, error: 'server_error' });
   }
 });

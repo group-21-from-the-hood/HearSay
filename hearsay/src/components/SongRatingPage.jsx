@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { getSpotifyTrack } from '../config/spotify';
+import { upsertReview, getMyReview, deleteMyReview } from '../config/reviews';
 import { useTheme } from '../context/ThemeContext';
 import HeadphoneRating from './HeadphoneRating';
 import { sanitizeInput, sanitizeRating } from '../utils/sanitize';
 
-const SONG_REVIEW_WORD_LIMIT = 300;
+const SONG_REVIEW_WORD_LIMIT = 1000;
 
 export default function SongRatingPage() {
   const { songId } = useParams();
@@ -15,6 +16,8 @@ export default function SongRatingPage() {
   const [rating, setRating] = useState(0); // Changed from '' to 0
   const [loading, setLoading] = useState(true);
   const [review, setReview] = useState('');
+  const [isEditingReview, setIsEditingReview] = useState(false);
+  const [isEditingRating, setIsEditingRating] = useState(false);
 
   // Calculate word count
   const wordCount = review.trim().split(/\s+/).filter(word => word.length > 0).length;
@@ -49,39 +52,72 @@ export default function SongRatingPage() {
     fetchSongData();
   }, [songId]);
 
+  // Load existing review for this song for the current user
+  useEffect(() => {
+    const loadMyReview = async () => {
+      if (!songId) return;
+      try {
+        const existing = await getMyReview('song', songId);
+        if (existing) {
+          if (typeof existing.rating === 'number') setRating(existing.rating);
+          if (typeof existing.text === 'string') setReview(existing.text);
+          setIsEditingReview(false);
+          setIsEditingRating(false);
+        }
+      } catch (e) {
+        // Not logged in or no review yet; ignore
+      }
+    };
+    loadMyReview();
+  }, [songId]);
+
   const formatDuration = (ms) => {
     const minutes = Math.floor(ms / 60000);
     const seconds = ((ms % 60000) / 1000).toFixed(0);
     return `${minutes}:${seconds.padStart(2, '0')}`;
   };
 
-  const handleSubmitRating = () => {
+  const handleSubmitRating = async () => {
     const sanitizedRating = sanitizeRating(rating);
     
-    console.log('Song rating:', sanitizedRating);
     if (sanitizedRating === 0) {
       alert('Please select a rating before submitting!');
     } else {
-      alert(`Rating of ${sanitizedRating}/5 submitted! (This will save to database in the future)`);
+      try {
+        await upsertReview({ type: 'song', oid: songId, rating: sanitizedRating });
+        alert(`Rating of ${sanitizedRating}/5 ${isEditingRating ? 'updated' : 'submitted'}!`);
+        setIsEditingRating(false);
+      } catch (e) {
+        if (String(e.message).includes('unauthorized')) {
+          alert('Please sign in to submit a rating.');
+        } else {
+          alert('Failed to submit rating. Please try again.');
+        }
+      }
     }
   };
 
-  const handleSubmitReview = () => {
+  const handleSubmitReview = async () => {
     const sanitizedReview = sanitizeInput(review);
-    
-    console.log('Song review:', {
-      songId: song.id,
-      songTitle: song.title,
-      review: sanitizedReview,
-      wordCount: wordCount
-    });
     
     if (!sanitizedReview.trim()) {
       alert('Please write a review before submitting!');
     } else if (wordCount > SONG_REVIEW_WORD_LIMIT) {
       alert(`Review exceeds ${SONG_REVIEW_WORD_LIMIT} word limit. Please shorten your review.`);
     } else {
-      alert('Review submitted! (This will save to database in the future)');
+      try {
+        await upsertReview({ type: 'song', oid: songId, text: sanitizedReview });
+        alert(isEditingReview ? 'Review updated!' : 'Review submitted!');
+        setIsEditingReview(false);
+      } catch (e) {
+        if (String(e.message).includes('unauthorized')) {
+          alert('Please sign in to submit a review.');
+        } else if (String(e.message).includes('text_too_long')) {
+          alert(`Review exceeds ${SONG_REVIEW_WORD_LIMIT} words.`);
+        } else {
+          alert('Failed to submit review. Please try again.');
+        }
+      }
     }
   };
 
@@ -92,6 +128,28 @@ export default function SongRatingPage() {
     // Only update if within word limit
     if (newWordCount <= SONG_REVIEW_WORD_LIMIT || newText.length < review.length) {
       setReview(newText);
+    }
+  };
+
+  const handleDeleteReview = async () => {
+    if (!songId) return;
+    try {
+      const deleted = await deleteMyReview('song', songId);
+      if (deleted) {
+        setReview('');
+        setRating(0);
+        alert('Your review was deleted.');
+        setIsEditingReview(false);
+        setIsEditingRating(false);
+      } else {
+        alert('No existing review to delete.');
+      }
+    } catch (e) {
+      if (String(e.message).includes('unauthorized')) {
+        alert('Please sign in to delete your review.');
+      } else {
+        alert('Failed to delete review. Please try again.');
+      }
     }
   };
 
@@ -143,24 +201,58 @@ export default function SongRatingPage() {
               <h2 className="font-semibold mb-4">
                 <span className="text-black dark:text-white">Review</span>
               </h2>
-              <div className="relative">
-                <textarea 
-                  value={review}
-                  onChange={handleReviewChange}
-                  className="w-full h-32 border-2 border-black dark:border-white bg-white dark:bg-gray-800 text-black dark:text-white p-2 pb-6 resize-none"
-                  placeholder="Write your review here..."
-                  maxLength={5000}
-                />
-                <div className="absolute bottom-2 right-2 text-xs italic text-gray-500 dark:text-gray-400">
-                  {remainingWords} {remainingWords === 1 ? 'word' : 'words'} remaining
-                </div>
-              </div>
-              <button 
-                onClick={handleSubmitReview}
-                className="w-full mt-4 border-2 border-black dark:border-white py-2 hover:bg-gray-100 dark:hover:bg-gray-800 bg-white dark:bg-gray-900 text-black dark:text-white transition-colors"
-              >
-                Submit Review
-              </button>
+              {review.trim().length > 0 && !isEditingReview ? (
+                <>
+                  <div className="whitespace-pre-wrap border-2 border-black dark:border-white bg-white dark:bg-gray-800 text-black dark:text-white p-2 min-h-[8rem]">
+                    {review}
+                  </div>
+                  <button
+                    onClick={() => setIsEditingReview(true)}
+                    className="w-full mt-4 border-2 border-black dark:border-white py-2 hover:bg-gray-100 dark:hover:bg-gray-800 bg-white dark:bg-gray-900 text-black dark:text-white transition-colors"
+                  >
+                    Edit Review
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div className="relative">
+                    <textarea
+                      value={review}
+                      onChange={handleReviewChange}
+                      className="w-full h-32 border-2 border-black dark:border-white bg-white dark:bg-gray-800 text-black dark:text-white p-2 pb-6 resize-none"
+                      placeholder="Write your review here..."
+                      maxLength={5000}
+                    />
+                    <div className="absolute bottom-2 right-2 text-xs italic text-gray-500 dark:text-gray-400">
+                      {remainingWords} {remainingWords === 1 ? 'word' : 'words'} remaining
+                    </div>
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-2 mt-4">
+                    <button
+                      onClick={handleSubmitReview}
+                      className="flex-1 border-2 border-black dark:border-white py-2 hover:bg-gray-100 dark:hover:bg-gray-800 bg-white dark:bg-gray-900 text-black dark:text-white transition-colors"
+                    >
+                      {review.trim().length > 0 ? (isEditingReview ? 'Save Review' : 'Submit Review') : 'Submit Review'}
+                    </button>
+                    {isEditingReview && (
+                      <>
+                        <button
+                          onClick={() => setIsEditingReview(false)}
+                          className="flex-1 border-2 border-gray-400 dark:border-gray-500 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 bg-white dark:bg-gray-900 text-black dark:text-white transition-colors"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={handleDeleteReview}
+                          className="flex-1 border-2 border-red-600 text-red-700 dark:text-red-400 dark:border-red-500 py-2 hover:bg-red-50 dark:hover:bg-red-900/20 bg-white dark:bg-gray-900 transition-colors"
+                        >
+                          Delete Review
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
@@ -170,20 +262,38 @@ export default function SongRatingPage() {
               <h2 className="font-semibold mb-4">
                 <span className="text-black dark:text-white">Rating</span>
               </h2>
-              <div className="flex justify-center mb-4">
+              <div className={`flex justify-center mb-4 ${rating > 0 && !isEditingRating ? 'pointer-events-none opacity-90' : ''}`}>
                 <HeadphoneRating
                   value={rating}
                   onChange={setRating}
                   size="medium"
                 />
               </div>
-              {/* Submit Rating Button */}
-              <button 
-                onClick={handleSubmitRating}
-                className="w-full border-2 border-black dark:border-white py-2 hover:bg-gray-100 dark:hover:bg-gray-800 bg-white dark:bg-gray-900 text-black dark:text-white transition-colors"
-              >
-                Submit Rating
-              </button>
+              {rating > 0 && !isEditingRating ? (
+                <button
+                  onClick={() => setIsEditingRating(true)}
+                  className="w-full border-2 border-black dark:border-white py-2 hover:bg-gray-100 dark:hover:bg-gray-800 bg-white dark:bg-gray-900 text-black dark:text-white transition-colors"
+                >
+                  Edit Rating
+                </button>
+              ) : (
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <button
+                    onClick={handleSubmitRating}
+                    className="flex-1 border-2 border-black dark:border-white py-2 hover:bg-gray-100 dark:hover:bg-gray-800 bg-white dark:bg-gray-900 text-black dark:text-white transition-colors"
+                  >
+                    {rating > 0 ? (isEditingRating ? 'Update Rating' : 'Submit Rating') : 'Submit Rating'}
+                  </button>
+                  {isEditingRating && (
+                    <button
+                      onClick={() => setIsEditingRating(false)}
+                      className="flex-1 border-2 border-gray-400 dark:border-gray-500 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 bg-white dark:bg-gray-900 text-black dark:text-white transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>

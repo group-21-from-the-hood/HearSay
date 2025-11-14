@@ -199,12 +199,35 @@ export async function ensureUserIndexes() {
   }
 }
 
+// Ensure one review per user per item (song/album/artist)
+export async function ensureReviewIndexes() {
+  await connectMongo();
+  const reviews = collection('reviews');
+  try {
+    await reviews.createIndex(
+      { 'user.oid': 1, 'item.type': 1, 'item.oid': 1 },
+      {
+        unique: true,
+        partialFilterExpression: {
+          'user.oid': { $type: 'string' },
+          'item.type': { $type: 'string' },
+          'item.oid': { $type: 'string' },
+        },
+        name: 'uniq_user_item',
+      }
+    );
+  } catch (e) {
+    console.warn('[DB] ensureReviewIndexes warning:', e.message || e);
+  }
+}
+
 export default {
   connectMongo,
   getDb,
   closeMongo,
   initDb,
   ensureUserIndexes,
+  ensureReviewIndexes,
   CRUD,
   Albums,
   Artists,
