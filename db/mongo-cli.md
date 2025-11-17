@@ -11,7 +11,7 @@ Platform: Linux / macOS (bash)
 
 Safe variables (bash)
 ```bash
-DB='HearSay'
+DB='hearsay'
 USER='admin'
 # Avoid hardcoding passwords in scripts for production
 PASS='password'
@@ -29,7 +29,7 @@ mongodump --db "$DB" --username "$USER" --password "$PASS" --authenticationDatab
 
 Full database backup (single compressed archive)
 ```bash
-mongodump --db "$DB" --username "$USER" --password "$PASS" --authenticationDatabase "$AUTHDB" --host "$HOST" --port $PORT --archive="$OUTDIR/hearsay.archive.gz" --gzip
+mongodump --host localhost:27017 --db hearsay --out ./ --username admin --password password --authenticationDatabase admin --archive example-base.zip --zip
 ```
 
 Restore from directory
