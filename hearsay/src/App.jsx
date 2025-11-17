@@ -4,9 +4,14 @@ import LandingPage from './components/LandingPage';
 import AlbumRatingPage from './components/AlbumRatingPage';
 import SongRatingPage from './components/SongRatingPage';
 import MyReviewsPage from './components/MyReviewsPage';
+import ProtectedRoute from './components/ProtectedRoute';
+import ProfilePage from './components/ProfilePage';
 import DiscoverPage from './components/DiscoverPage';
 import RandomPage from './components/RandomPage';
 import AuthPage from './components/AuthPage';
+import AuthCallback from './components/AuthCallback';
+import SearchPage from './components/SearchPage';
+import ArtistPage from './components/ArtistPage';
 
 function App() {
   return (
@@ -16,12 +21,16 @@ function App() {
         <div className="pt-16">
           <Routes>
             <Route path="/" element={<LandingPage />} />
-            <Route path="/album-rating" element={<AlbumRatingPage />} />
-            <Route path="/song-rating" element={<SongRatingPage />} />
-            <Route path="/my-reviews" element={<MyReviewsPage />} />
+            <Route path="/search" element={<SearchPage />} />
+            <Route path="/artist/:artistId" element={<ArtistPage />} />
+            <Route path="/album/:albumId" element={<AlbumRatingPage />} />
+            <Route path="/song/:songId" element={<SongRatingPage />} />
+            <Route path="/my-reviews" element={<ProtectedRoute><MyReviewsPage /></ProtectedRoute>} />
             <Route path="/discover" element={<DiscoverPage />} />
+            <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
             <Route path="/random" element={<RandomPage />} />
             <Route path="/auth" element={<AuthPage />} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
           </Routes>
         </div>
       </div>
