@@ -118,7 +118,7 @@ export default function HeadphoneRating({ value = 0, onChange, size = 'large' })
 
       {/* Rating Display Box */}
       <div className={`border-2 border-black dark:border-white ${boxColorClasses} ${boxSizeClasses[size]} font-medium text-center ml-auto`}>
-        {boxDisplayValue}/5
+        {Number(boxDisplayValue).toFixed(1)}/5
       </div>
     </div>
   );

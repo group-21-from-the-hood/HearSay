@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
-import { spotifyApi, getAccessToken } from '../config/spotify';
+import { searchSpotify } from '../config/spotify';
 import { sanitizeSearchQuery } from '../utils/sanitize';
 
 export default function SearchPage() {
@@ -46,23 +46,18 @@ export default function SearchPage() {
       setLoading(true);
       setError(null);
       
-      const token = await getAccessToken();
-      spotifyApi.setAccessToken(token);
-
-      const response = await spotifyApi.search(sanitizedQuery, ['artist', 'album', 'track'], {
-        limit: 50,
-        market: 'US'
-      });
+      // Use server proxy wrapper; request all three categories in one call
+      const response = await searchSpotify(sanitizedQuery, 'artist,album,track', 50, 'US');
 
       setResults({
-        artists: response.body.artists?.items.map(artist => ({
+        artists: response.artists?.items.map(artist => ({
           id: artist.id,
           name: artist.name,
           image: artist.images?.[0]?.url,
           followers: artist.followers?.total,
           spotifyUrl: artist.external_urls.spotify
         })) || [],
-        albums: response.body.albums?.items.map(album => ({
+        albums: response.albums?.items.map(album => ({
           id: album.id,
           title: album.name,
           artist: album.artists[0]?.name,
@@ -70,7 +65,7 @@ export default function SearchPage() {
           releaseDate: album.release_date,
           spotifyUrl: album.external_urls.spotify
         })) || [],
-        tracks: response.body.tracks?.items.map(track => ({
+        tracks: response.tracks?.items.map(track => ({
           id: track.id,
           title: track.name,
           artist: track.artists[0]?.name,
