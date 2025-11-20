@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import Avatar from './Avatar';
+import Link from 'react-router-dom';
 
 export default function ProfilePage() {
   const [state, setState] = useState({ loading: true, error: null, profile: null });
