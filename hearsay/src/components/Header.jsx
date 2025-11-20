@@ -71,7 +71,6 @@ export default function Header() {
         <nav className="flex-1 mx-8">
           <ul className="flex justify-center space-x-8">
             <li><Link to="/my-reviews" className="hover:underline text-black dark:text-white">My Reviews</Link></li>
-            <li><Link to="/discover" className="hover:underline text-black dark:text-white">Discover</Link></li>
             <li><Link to="/random" className="hover:underline text-black dark:text-white">Random</Link></li>
           </ul>
         </nav>
