@@ -83,17 +83,37 @@ export default function Header() {
           >
             {theme === 'light' ? '🌙' : '☀️'}
           </button>
-          <input
-            type="search"
-            placeholder="Search"
-            className="border-2 border-black dark:border-white px-3 py-1 bg-white dark:bg-gray-800 text-black dark:text-white"
-          />
-          <button 
-            onClick={() => navigate('/auth')}
-            className="border-2 border-black dark:border-white px-4 py-1 hover:bg-gray-100 dark:hover:bg-gray-800 bg-white dark:bg-gray-900 text-black dark:text-white"
-          >
-            Login/Register
-          </button>
+          <form onSubmit={handleSearch}>
+            <input
+              type="search"
+              placeholder="Search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="border-2 border-black dark:border-white px-3 py-1 bg-white dark:bg-gray-800 text-black dark:text-white"
+              maxLength={200}
+            />
+          </form>
+          {me.authenticated ? (
+            <div className="flex items-center gap-2">
+              <Avatar src={me.user?.picture} name={me.user?.name || me.user?.email} size={32} />
+              <Link to="/profile" className="text-black dark:text-white hover:underline">
+                {me.user?.name || me.user?.email || 'Profile'}
+              </Link>
+              <button
+                onClick={handleLogout}
+                className="border-2 border-black dark:border-white px-4 py-1 hover:bg-gray-100 dark:hover:bg-gray-800 bg-white dark:bg-gray-900 text-black dark:text-white"
+              >
+                Logout
+              </button>
+            </div>
+          ) : (
+            <button 
+              onClick={() => navigate('/auth')}
+              className="border-2 border-black dark:border-white px-4 py-1 hover:bg-gray-100 dark:hover:bg-gray-800 bg-white dark:bg-gray-900 text-black dark:text-white"
+            >
+              Login/Register
+            </button>
+          )}
         </div>
 
         {/* Mobile Header */}
