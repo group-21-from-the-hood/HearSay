@@ -150,15 +150,6 @@ export default function Header() {
                 )}
                 <li>
                   <Link 
-                    to="/discover" 
-                    className="block py-2 text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 border-2 border-black dark:border-white px-4"
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    discover
-                  </Link>
-                </li>
-                <li>
-                  <Link 
                     to="/random" 
                     className="block py-2 text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 border-2 border-black dark:border-white px-4"
                     onClick={() => setMobileMenuOpen(false)}
