@@ -65,64 +65,35 @@ export default function Header() {
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-white dark:bg-gray-900 border-b-2 border-black dark:border-white transition-colors">
-      <div className="container mx-auto px-4 py-3">
-        {/* Desktop Header */}
-        <div className="hidden md:flex items-center justify-between">
-          <Link to="/" className="text-xl font-bold text-black dark:text-white hover:underline">
-            HearSay
-          </Link>
-          
-          <nav className="flex-1 mx-8">
-            <ul className="flex justify-center space-x-8">
-              {me.authenticated && (
-                <li><Link to="/my-reviews" className="text-black dark:text-white hover:underline">my reviews</Link></li>
-              )}
-              <li><Link to="/random" className="text-black dark:text-white hover:underline">random</Link></li>
-            </ul>
-          </nav>
+      <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+        <Link to="/" className="text-xl font-bold hover:underline text-black dark:text-white">HearSay</Link>
+        
+        <nav className="flex-1 mx-8">
+          <ul className="flex justify-center space-x-8">
+            <li><Link to="/my-reviews" className="hover:underline text-black dark:text-white">My Reviews</Link></li>
+            <li><Link to="/random" className="hover:underline text-black dark:text-white">Random</Link></li>
+          </ul>
+        </nav>
 
-          <div className="flex items-center gap-4">
-            <form onSubmit={handleSearch} className="h-10 flex items-center">
-              <input
-                type="search"
-                placeholder="search"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-full border-2 border-black dark:border-white bg-white dark:bg-gray-900 text-black dark:text-white px-3 placeholder-gray-500 dark:placeholder-gray-400"
-                maxLength={200}
-              />
-            </form>
-            
-            {me.authenticated ? (
-              <div className="flex items-center gap-3">
-                <Avatar src={me.user?.picture} name={me.user?.name || me.user?.email} size={32} />
-                <Link to="/profile" className="text-black dark:text-white max-w-[160px] truncate hover:underline" title={me.user?.email || me.user?.name}>
-                  {me.user?.name || me.user?.email || 'Signed in'}
-                </Link>
-                <button
-                  onClick={handleLogout}
-                  className="h-10 border-2 border-black dark:border-white bg-white dark:bg-gray-900 text-black dark:text-white px-3 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                >
-                  logout
-                </button>
-              </div>
-            ) : (
-              <button 
-                onClick={() => navigate('/auth')}
-                className="h-10 border-2 border-black dark:border-white bg-white dark:bg-gray-900 text-black dark:text-white px-4 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex items-center justify-center"
-              >
-                login/register
-              </button>
-            )}
-
-            <button
-              onClick={toggleTheme}
-              className="h-10 w-10 border-2 border-black dark:border-white bg-white dark:bg-gray-900 text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex items-center justify-center"
-              aria-label="Toggle theme"
-            >
-              {theme === 'dark' ? '☀️' : '🌙'}
-            </button>
-          </div>
+        <div className="flex items-center space-x-4">
+          <button
+            onClick={toggleTheme}
+            className="p-2 border-2 border-black dark:border-white bg-white dark:bg-gray-900 text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            aria-label="Toggle theme"
+          >
+            {theme === 'light' ? '🌙' : '☀️'}
+          </button>
+          <input
+            type="search"
+            placeholder="Search"
+            className="border-2 border-black dark:border-white px-3 py-1 bg-white dark:bg-gray-800 text-black dark:text-white"
+          />
+          <button 
+            onClick={() => navigate('/auth')}
+            className="border-2 border-black dark:border-white px-4 py-1 hover:bg-gray-100 dark:hover:bg-gray-800 bg-white dark:bg-gray-900 text-black dark:text-white"
+          >
+            Login/Register
+          </button>
         </div>
 
         {/* Mobile Header */}
