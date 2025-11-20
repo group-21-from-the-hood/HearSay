@@ -27,6 +27,7 @@ export default function ArtistPage() {
   useEffect(() => {
     const fetchArtistData = async () => {
       if (!artistId) {
+        setError('No artist ID provided');
         setLoading(false);
         return;
       }
@@ -82,35 +83,21 @@ export default function ArtistPage() {
           }
         });
 
+        console.log('Album items:', albumItems.length);
+        console.log('Single items:', singleItems.length);
+
         // Get full details for albums in batches to avoid rate limits
         const albumIds = albumItems.slice(0, 50).map(a => a.id);
-        const batchedAlbumsResp = await getSpotifyAlbums(albumIds);
-        const albumDetailsResponses = Array.isArray(batchedAlbumsResp?.albums) ? batchedAlbumsResp.albums : [];
+        let sortedAlbums = [];
+        
+        if (albumIds.length > 0) {
+          const batchedAlbumsResp = await getSpotifyAlbums(albumIds);
+          const albumDetailsResponses = Array.isArray(batchedAlbumsResp?.albums) ? batchedAlbumsResp.albums : [];
 
-        const sortedAlbums = albumDetailsResponses
-          .map(r => ({
-            id: r.id,
-            title: r.name,
-            artist: r.artists?.[0]?.name,
-            coverArt: r.images?.[0]?.url,
-            releaseDate: r.release_date,
-            totalTracks: r.total_tracks,
-            popularity: r.popularity || 0,
-            type: r.album_type,
-            spotifyUrl: r.external_urls?.spotify
-          }))
-          .sort((a, b) => b.popularity - a.popularity);
-
-        // Get full details for singles in batches and extract first track
-        const singleIds = singleItems.slice(0, 50).map(s => s.id);
-        const batchedSinglesResp = await getSpotifyAlbums(singleIds);
-        const singleDetailsResponses = Array.isArray(batchedSinglesResp?.albums) ? batchedSinglesResp.albums : [];
-
-        const sortedSingles = singleDetailsResponses
-          .map(r => {
-            const firstTrack = r.tracks?.items?.[0];
-            return {
-              id: firstTrack?.id || r.id,
+          sortedAlbums = albumDetailsResponses
+            .filter(r => r) // Filter out null responses
+            .map(r => ({
+              id: r.id,
               title: r.name,
               artist: r.artists?.[0]?.name,
               coverArt: r.images?.[0]?.url,
@@ -118,11 +105,46 @@ export default function ArtistPage() {
               totalTracks: r.total_tracks,
               popularity: r.popularity || 0,
               type: r.album_type,
-              spotifyUrl: r.external_urls?.spotify,
-              album: r.name,
-            };
-          })
-          .sort((a, b) => b.popularity - a.popularity);
+              spotifyUrl: r.external_urls?.spotify
+            }))
+            .sort((a, b) => b.popularity - a.popularity);
+        }
+
+        // Get full details for singles in batches and extract first track
+        const singleIds = singleItems.slice(0, 50).map(s => s.id);
+        let sortedSingles = [];
+        
+        if (singleIds.length > 0) {
+          const batchedSinglesResp = await getSpotifyAlbums(singleIds);
+          const singleDetailsResponses = Array.isArray(batchedSinglesResp?.albums) ? batchedSinglesResp.albums : [];
+
+          console.log('Single details responses:', singleDetailsResponses.length);
+
+          sortedSingles = singleDetailsResponses
+            .filter(r => r) // Filter out null responses
+            .flatMap(r => {
+              // For singles with only 1 track, use the track ID
+              // For EPs/singles with multiple tracks, use all track IDs
+              const tracks = r.tracks?.items || [];
+              console.log(`Album "${r.name}" has ${tracks.length} tracks`);
+              return tracks.map(track => ({
+                id: track.id, // Use individual track ID
+                title: track.name,
+                artist: r.artists?.[0]?.name,
+                coverArt: r.images?.[0]?.url,
+                releaseDate: r.release_date,
+                trackNumber: track.track_number,
+                totalTracks: r.total_tracks,
+                popularity: track.popularity || r.popularity || 0,
+                type: 'track',
+                spotifyUrl: track.external_urls?.spotify,
+                album: r.name,
+              }));
+            })
+            .sort((a, b) => b.popularity - a.popularity);
+
+          console.log('Sorted singles:', sortedSingles.length);
+        }
 
         setAlbums(sortedAlbums);
         setSingles(sortedSingles);
@@ -233,13 +255,19 @@ export default function ArtistPage() {
     return (
       <main className="container mx-auto px-4 py-8">
         <div className="border-2 border-red-500 bg-white dark:bg-gray-900 p-6 text-red-500">
-          {error}
+          <p>{error}</p>
+          <button 
+            onClick={() => navigate(-1)}
+            className="mt-4 border-2 border-black dark:border-white bg-white dark:bg-gray-900 text-black dark:text-white px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+          >
+            Go Back
+          </button>
         </div>
       </main>
     );
   }
 
-  if (!artistId) {
+  if (!artistId || !artistDetails) {
     return (
       <main className="container mx-auto px-4 py-8">
         <div className="text-center text-xl text-black dark:text-white">Artist not found</div>
@@ -389,89 +417,80 @@ export default function ArtistPage() {
             ))}
           </div>
         ) : (
-          <p className="text-gray-600 dark:text-gray-400">No rated songs yet</p>
+          <div className="text-center text-gray-500 dark:text-gray-400 py-8">
+            No top rated songs found for this artist.
+          </div>
         )}
       </div>
 
-      {/* Albums Section */}
-      <section className="mb-12">
-        <h2 className="text-2xl font-semibold mb-6">
-          <span className="text-black dark:text-white">Albums ({albums.length})</span>
-        </h2>
-        {albums.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {albums.map(album => (
-              <div
-                key={album.id}
-                className="cursor-pointer group"
-                onClick={() => navigate(`/album/${album.id}`)}
-              >
-                <div className="aspect-square mb-2 border-2 border-black dark:border-white">
-                  {album.coverArt ? (
-                    <img 
-                      src={album.coverArt} 
-                      alt={album.title} 
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-black dark:text-white">
-                      No Image
-                    </div>
-                  )}
+      {/* Albums & Singles */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-12">
+        {/* Albums */}
+        <div className="lg:col-span-8 border-2 border-black dark:border-white p-4 bg-white dark:bg-gray-900 text-black dark:text-white">
+          <h2 className="font-semibold mb-4"><span className="text-black dark:text-white">Albums</span></h2>
+          {albums.length > 0 ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+              {albums.map(album => (
+                <div key={album.id} className="group cursor-pointer" onClick={() => navigate(`/album/${album.id}`)}>
+                  <div className="aspect-square mb-2 border-2 border-black dark:border-white">
+                    {album.coverArt ? (
+                      <img src={album.coverArt} alt={album.title} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-black dark:text-white">No Image</div>
+                    )}
+                  </div>
+                  <p className="font-medium text-center truncate text-black dark:text-white group-hover:underline">{album.title}</p>
+                  <p className="text-xs text-center text-gray-600 dark:text-gray-400 truncate">{album.artist}</p>
                 </div>
-                <p className="font-medium text-center truncate text-black dark:text-white group-hover:underline">
-                  {album.title}
-                </p>
-                <p className="text-sm text-center text-gray-600 dark:text-gray-400 truncate">
-                  {album.releaseDate?.split('-')[0]}
-                </p>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-gray-600 dark:text-gray-400">No albums found for this artist</p>
-        )}
-      </section>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center text-gray-500 dark:text-gray-400 py-8">
+              No albums found for this artist.
+            </div>
+          )}
+        </div>
 
-      {/* Singles Section */}
-      <section>
-        <h2 className="text-2xl font-semibold mb-6">
-          <span className="text-black dark:text-white">Singles ({singles.length})</span>
-        </h2>
-        {singles.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {singles.map(single => (
-              <div
-                key={single.id}
-                className="cursor-pointer group"
-                onClick={() => navigate(`/song/${single.id}`)}
-              >
-                <div className="aspect-square mb-2 border-2 border-black dark:border-white">
-                  {single.coverArt ? (
-                    <img 
-                      src={single.coverArt} 
-                      alt={single.title} 
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-black dark:text-white">
-                      No Image
-                    </div>
-                  )}
+        {/* Singles */}
+        <div className="lg:col-span-4 border-2 border-black dark:border-white p-4 bg-white dark:bg-gray-900 text-black dark:text-white">
+          <h2 className="font-semibold mb-4"><span className="text-black dark:text-white">Singles</span></h2>
+          {singles.length > 0 ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+              {singles.map(single => (
+                <div
+                  key={single.id}
+                  className="cursor-pointer group"
+                  onClick={() => navigate(`/song/${single.id}`)}
+                >
+                  <div className="aspect-square mb-2 border-2 border-black dark:border-white">
+                    {single.coverArt ? (
+                      <img 
+                        src={single.coverArt} 
+                        alt={single.title} 
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-black dark:text-white">
+                        No Image
+                      </div>
+                    )}
+                  </div>
+                  <p className="font-medium text-center truncate text-black dark:text-white group-hover:underline">
+                    {single.title}
+                  </p>
+                  <p className="text-sm text-center text-gray-600 dark:text-gray-400 truncate">
+                    {single.releaseDate?.split('-')[0]}
+                  </p>
                 </div>
-                <p className="font-medium text-center truncate text-black dark:text-white group-hover:underline">
-                  {single.title}
-                </p>
-                <p className="text-sm text-center text-gray-600 dark:text-gray-400 truncate">
-                  {single.releaseDate?.split('-')[0]}
-                </p>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-gray-600 dark:text-gray-400">No singles found for this artist</p>
-        )}
-      </section>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center text-gray-500 dark:text-gray-400 py-8">
+              No singles found for this artist.
+            </div>
+          )}
+        </div>
+      </div>
     </main>
   );
 }
