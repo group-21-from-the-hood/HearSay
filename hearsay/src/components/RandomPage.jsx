@@ -27,7 +27,17 @@ export default function RandomPage() {
       setLoading(true);
       setError(null);
       if (type === 'album') {
-        const response = await getSpotifyNewReleases({ country: 'US', limit: 50 });
+        // Vary the country and offset for more randomness
+        const countries = ['US', 'GB', 'CA', 'AU', 'DE', 'FR', 'ES', 'IT', 'JP', 'BR'];
+        const randomCountry = countries[Math.floor(Math.random() * countries.length)];
+        // Spotify allows up to offset 1000, so we can access many more albums
+        const randomOffset = Math.floor(Math.random() * 950); // Keep under 1000 limit
+        
+        const response = await getSpotifyNewReleases({ 
+          country: randomCountry, 
+          limit: 50, // Max limit per request
+          offset: randomOffset 
+        });
         const items = response.albums?.items || [];
         const multiTrackAlbums = items.filter(a => a.total_tracks > 1);
         
@@ -37,12 +47,15 @@ export default function RandomPage() {
           return;
         }
         
-        const randomAlbum = multiTrackAlbums[Math.floor(Math.random() * multiTrackAlbums.length)];
+        // Use crypto.getRandomValues for better randomness
+        const randomIndex = crypto.getRandomValues(new Uint32Array(1))[0] % multiTrackAlbums.length;
+        const randomAlbum = multiTrackAlbums[randomIndex];
         
         setRandomItem({
           id: randomAlbum.id,
           title: randomAlbum.name,
           artist: randomAlbum.artists[0]?.name,
+          album: randomAlbum.name,
           albumArtist: randomAlbum.artists[0]?.name,
           coverArt: randomAlbum.images?.[0]?.url,
           releaseDate: randomAlbum.release_date,
@@ -55,21 +68,43 @@ export default function RandomPage() {
         setError(null);
         setItemType('song');
         
-        const randomChars = 'abcdefghijklmnopqrstuvwxyz';
+        // Vary search patterns for more randomness
+        const searchPatterns = [
+          () => {
+            const chars = 'abcdefghijklmnopqrstuvwxyz';
+            return chars[Math.floor(Math.random() * chars.length)] + '*';
+          },
+          () => {
+            const chars = 'abcdefghijklmnopqrstuvwxyz';
+            const char1 = chars[Math.floor(Math.random() * chars.length)];
+            const char2 = chars[Math.floor(Math.random() * chars.length)];
+            return char1 + char2 + '*';
+          },
+          () => {
+            const words = ['love', 'you', 'me', 'we', 'night', 'day', 'time', 'life', 'heart', 'world'];
+            return words[Math.floor(Math.random() * words.length)];
+          },
+          () => 'year:' + (1960 + Math.floor(Math.random() * 65))
+        ];
+        
         let track = null;
         let attempts = 0;
         const maxAttempts = 10;
 
         while (!track && attempts < maxAttempts) {
           attempts++;
-          const randomChar = randomChars[Math.floor(Math.random() * randomChars.length)];
-          const randomOffset = Math.floor(Math.random() * 100);
+          // Use different search pattern each attempt
+          const pattern = searchPatterns[Math.floor(Math.random() * searchPatterns.length)]();
+          // Vary offset significantly
+          const randomOffset = Math.floor(Math.random() * 1000);
 
           try {
-            const response = await searchSpotify(`${randomChar}*`, 'track', 1, 'US', randomOffset);
+            const response = await searchSpotify(pattern, 'track', 50, 'US', randomOffset);
             const items = response.tracks?.items || [];
             if (items.length > 0) {
-              track = items[0];
+              // Use crypto.getRandomValues for better randomness
+              const randomIndex = crypto.getRandomValues(new Uint32Array(1))[0] % items.length;
+              track = items[randomIndex];
               break;
             }
           } catch (searchError) {
@@ -107,7 +142,7 @@ export default function RandomPage() {
     <main className="container mx-auto px-4 py-8">
       <div className="mb-8">
         <h1 className="text-2xl font-bold mb-4">
-          <span className="text-black dark:text-white">Random Generator</span>
+          <span className="text-black dark:text-white">Random!</span>
         </h1>
         <div className="flex flex-wrap gap-4">
           <button 

@@ -77,7 +77,6 @@ export default function Header() {
               {me.authenticated && (
                 <li><Link to="/my-reviews" className="text-black dark:text-white hover:underline">my reviews</Link></li>
               )}
-              <li><Link to="/discover" className="text-black dark:text-white hover:underline">discover</Link></li>
               <li><Link to="/random" className="text-black dark:text-white hover:underline">random</Link></li>
             </ul>
           </nav>
