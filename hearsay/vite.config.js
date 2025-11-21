@@ -11,9 +11,9 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://localhost:5174',
+        target: 'http://backend:5174',
         changeOrigin: true,
-        // Allow webs and non-WS; rewrite is not needed since paths match
+        // rewrite: (path) => path.replace(/^\/api/, '') // use if backend expects /me instead of /api/me
       },
     },
   },

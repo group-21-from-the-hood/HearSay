@@ -4,26 +4,56 @@ import cors from 'cors';
 import session from 'express-session';
 import MongoStore from 'connect-mongo';
 import { ObjectId, Int32 } from 'mongodb';
+import crypto from 'node:crypto';
 import * as db from './dbAPI.js';
 import * as spotify from './spotifyAPI.js';
 
 // Load .env in development so server can read GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET
 dotenv.config();
+// Add env extraction
+const {
+  SESSION_NAME = 'hsid',
+  SESSION_SECRET,
+  SESSION_TTL_SECONDS = '3600',
+  SESSION_ROTATE_MS = '3600000',
+  SESSIONS_COLLECTION = 'expressSessions',
+  MONGO_DB_NAME,
+} = process.env;
+
+const EFFECTIVE_SESSION_SECRET = SESSION_SECRET || crypto.randomBytes(48).toString('hex');
+if (!SESSION_SECRET) {
+  console.warn('[CONFIG] Using generated session secret (provide SESSION_SECRET for persistence)');
+}
+
+// Fallbacks for Google & Spotify env moved off VITE_ prefix
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || process.env.VITE_GOOGLE_CLIENT_ID;
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || process.env.VITE_GOOGLE_CLIENT_SECRET;
+const SPOTIFY_CLIENT_ID = process.env.SPOTIFY_CLIENT_ID || process.env.VITE_SPOTIFY_CLIENT_ID;
+const SPOTIFY_CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET || process.env.VITE_SPOTIFY_CLIENT_SECRET;
+
+if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+  console.warn('[CONFIG] Google OAuth env incomplete');
+}
+if (!SPOTIFY_CLIENT_ID || !SPOTIFY_CLIENT_SECRET) {
+  console.warn('[CONFIG] Spotify credentials missing; Spotify endpoints will fail');
+}
+
+// Coerce numeric env
+const SESSION_TTL_NUM = parseInt(SESSION_TTL_SECONDS, 10) || 3600;
+const SESSION_ROTATE_MS_NUM = parseInt(SESSION_ROTATE_MS, 10) || 3600000;
 
 const app = express();
 const PORT = process.env.PORT || 5174;
 
-// Frontend origin for CORS (cookies), session cookie name/secret and timings
-const ORIGIN = process.env.FRONTEND_ORIGIN || 'http://localhost:5173';
-const SESSION_NAME = process.env.SESSION_NAME || 'hsid';
-const SESSION_SECRET = process.env.SESSION_SECRET || 'dev-insecure-secret';
-const SESSION_TTL_SECONDS = parseInt(process.env.SESSION_TTL_SECONDS || '3600', 10); // 1 hour
-const SESSION_ROTATE_MS = parseInt(process.env.SESSION_ROTATE_MS || String(60 * 60 * 1000), 10);
-const MONGO_DB = process.env.MONGO_DB_NAME || process.env.VITE_MONGO_DB_NAME || 'HearSay';
-const SESSIONS_COLLECTION = process.env.SESSIONS_COLLECTION || 'expressSessions';
-
-// Allow cookies from the frontend app
-app.use(cors({ origin: ORIGIN, credentials: true }));
+const origins = (process.env.API_ORIGIN || '').split(',').map(o => o.trim()).filter(Boolean)
+app.use(cors({
+  origin: (origin, cb) => {
+    if (!origin) return cb(null, true)
+    if (origins.includes(origin)) return cb(null, true)
+    return cb(new Error('CORS blocked: ' + origin))
+  },
+  credentials: true
+}));
 app.use(express.json());
 // Trust proxy when behind one (uncomment if deploying behind reverse proxy)
 // app.set('trust proxy', 1);
@@ -48,22 +78,20 @@ try {
 app.use(
   session({
     name: SESSION_NAME,
-    secret: SESSION_SECRET,
+    secret: EFFECTIVE_SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
-    rolling: true, // refresh cookie expiration on every response
+    rolling: true,
     cookie: {
       httpOnly: true,
-      secure: false, // set to true when serving over HTTPS in prod
-      maxAge: SESSION_TTL_SECONDS * 1000,
+      secure: false,
+      maxAge: SESSION_TTL_NUM * 1000,
     },
     store: MongoStore.create({
-      // Reuse our authenticated client (uses creds/URI from dbAPI)
       client: db.getClient(),
-      dbName: MONGO_DB,
-      // Use a dedicated collection to avoid clashing with your app's "sessions" schema
+      dbName: MONGO_DB_NAME,
       collectionName: SESSIONS_COLLECTION,
-      ttl: SESSION_TTL_SECONDS,
+      ttl: SESSION_TTL_NUM,
       stringify: false,
       autoRemove: 'native',
     }),
@@ -72,12 +100,13 @@ app.use(
 
 // Rotate session id every SESSION_ROTATE_MS to mitigate fixation
 app.use((req, res, next) => {
+  // rotate session using coerced numeric value
   if (!req.session) return next();
   const now = Date.now();
   const last = req.session.__lastRotated || 0;
-  if (now - last > SESSION_ROTATE_MS) {
+  if (now - last > SESSION_ROTATE_MS_NUM) {
     const preserve = { ...req.session };
-    req.session.regenerate((err) => {
+    req.session.regenerate(err => {
       if (err) return next(err);
       Object.assign(req.session, preserve);
       req.session.__lastRotated = now;
@@ -101,7 +130,7 @@ app.use((req, res, next) => {
 });
 
 // Health check
-app.get('/', (req, res) => res.json({ ok: true }));
+app.get('/api/health', (req, res) => res.json({ ok: true }));
 
 // Session info endpoint: ensures a session exists and returns basic details
 app.get('/api/session', (req, res) => {
@@ -122,10 +151,10 @@ app.post('/api/auth/google/exchange', async (req, res) => {
       return res.status(400).json({ error: 'missing_parameters' });
     }
 
-    const client_id = process.env.VITE_GOOGLE_CLIENT_ID;
-    const client_secret = process.env.VITE_GOOGLE_CLIENT_SECRET;
+    const client_id = GOOGLE_CLIENT_ID;
+    const client_secret = GOOGLE_CLIENT_SECRET;
     if (!client_id || !client_secret) {
-      return res.status(500).json({ error: 'server_misconfigured', message: 'Missing VITE_GOOGLE_CLIENT_ID or VITE_GOOGLE_CLIENT_SECRET on server.' });
+      return res.status(500).json({ error: 'server_misconfigured', message: 'Missing GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET' });
     }
 
     const body = new URLSearchParams({
@@ -299,8 +328,8 @@ app.get('/api/profile', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Google auth proxy listening on http://localhost:${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log('Backend listening on', PORT);
 });
 
 // DB connectivity test: attempts to connect and ping the database
@@ -727,6 +756,7 @@ app.post('/api/reviews/upsert', async (req, res) => {
             const albumDoc = await albumsCol.findOne({ spotifyAlbumId: oid });
             const albumIdStr = albumDoc?._id?.toString?.();
             const albumName = albumDoc?.name || '';
+
             // Add existing song docs referencing this album
             if (albumIdStr) {
               const songsCol = db.Songs.collection();
@@ -741,111 +771,113 @@ app.post('/api/reviews/upsert', async (req, res) => {
                 );
               }
             }
-            // Create missing tracks from Spotify album
+
+            // Fetch latest album from Spotify and iterate tracks
             const arFull = await spotify.getAlbum(oid);
             const alFull = arFull?.data;
             const trackItems = Array.isArray(alFull?.tracks?.items) ? alFull.tracks.items : [];
-            if (trackItems.length && albumIdStr) {
-              const songsCol = db.Songs.collection();
-              for (const t of trackItems) {
-                if (!t || !t.id) continue;
-                const artist0t = Array.isArray(t.artists) && t.artists[0] ? t.artists[0] : {};
-                // Ensure artist doc
-                let artistDoc = artist0t.id ? await db.Artists.collection().findOne({ spotifyArtistId: artist0t.id }) : null;
-                if (!artistDoc && artist0t.id) {
-                  try {
-                    const aRes = await spotify.getArtist(artist0t.id);
-                    const a = aRes?.data;
-                    if (a && a.id) {
-                      const nowIsoArtist = new Date().toISOString();
-                      await db.Artists.collection().updateOne(
-                        { spotifyArtistId: a.id },
-                        {
-                          $setOnInsert: {
-                            name: a.name || '',
-                            image: a.images?.[0]?.url || '',
-                            followers: Number.isInteger(a.followers?.total) ? a.followers.total : 0,
-                            genres: Array.isArray(a.genres) ? a.genres : [],
-                            popularity: Number.isInteger(a.popularity) ? a.popularity : 0,
-                            spotifyUrl: a.external_urls?.spotify || '',
-                            createdAt: nowIsoArtist,
-                            updatedAt: nowIsoArtist,
-                            spotifyArtistId: a.id,
-                            likes: '0',
-                            dislikes: '0',
-                            rating: '0',
-                            reviews: [],
-                            albums: [],
-                            songs: [],
-                          },
-                        },
-                        { upsert: true }
-                      );
-                      artistDoc = await db.Artists.collection().findOne({ spotifyArtistId: a.id });
-                    }
-                  } catch {}
-                }
-                const artistOidRef = artistDoc?._id?.toString?.() || '';
-                // Derive genres from the artist
-                let genresList = [];
-                if (artistDoc?.spotifyArtistId) {
-                  try {
-                    const artistRes = await spotify.getArtist(artistDoc.spotifyArtistId);
-                    const aData = artistRes?.data;
-                    if (aData && Array.isArray(aData.genres)) genresList = aData.genres.slice(0, 20);
-                  } catch {}
-                }
-                // Atomic upsert to avoid duplicates under concurrency
-                const songSeed = {
-                  title: t.name || '',
-                  spotifyTrackID: t.id,
-                  date: alFull?.release_date || '',
-                  genres: genresList,
-                  image: Array.isArray(alFull?.images) && alFull.images[0] ? alFull.images[0].url : '',
-                  likes: '0',
-                  dislikes: '0',
-                  rating: '0',
-                  artist: { name: artistDoc?.name || artist0t.name || '', oid: artistOidRef, spotifyArtistId: artistDoc?.spotifyArtistId || artist0t.id || '' },
-                  album: { name: albumName, oid: albumIdStr, spotifyAlbumId: oid },
-                  reviews: [],
-                };
-                let songDoc = null;
+            const songsCol = db.Songs.collection();
+
+            for (const t of trackItems) {
+              if (!t?.id) continue;
+
+              const artist0t = Array.isArray(t.artists) && t.artists[0] ? t.artists[0] : {};
+              // Ensure artist doc
+              let artistDoc = artist0t.id ? await db.Artists.collection().findOne({ spotifyArtistId: artist0t.id }) : null;
+              if (!artistDoc && artist0t.id) {
                 try {
-                  const up = await songsCol.findOneAndUpdate(
-                    { spotifyTrackID: t.id },
-                    { $setOnInsert: songSeed },
-                    { upsert: true, returnDocument: 'after', projection: { _id: 1, title: 1 } }
-                  );
-                  songDoc = up?.value || null;
-                } catch (dupErr) {
-                  // If unique index conflict occurred due to race, read existing doc
-                  if (dupErr && (dupErr.code === 11000 || /duplicate key/i.test(String(dupErr)))) {
-                    songDoc = await songsCol.findOne(
-                      { spotifyTrackID: t.id },
-                      { projection: { _id: 1, title: 1 } }
-                    );
-                  } else {
-                    console.warn('[Songs] upsert failed', dupErr?.message || dupErr);
-                  }
-                }
-                if (songDoc) {
-                  await albumsCol.updateOne(
-                    { spotifyAlbumId: oid },
-                    { $addToSet: { songs: { name: songDoc.title || '', oid: songDoc._id.toString() } }, $set: { updatedAt: nowIso } }
-                  );
-                  // Also keep artist arrays consistent
-                  if (artistDoc && artistDoc._id) {
+                  const aRes = await spotify.getArtist(artist0t.id);
+                  const a = aRes?.data;
+                  if (a?.id) {
+                    const nowIsoArtist = new Date().toISOString();
                     await db.Artists.collection().updateOne(
-                      { _id: artistDoc._id },
+                      { spotifyArtistId: a.id },
                       {
-                        $addToSet: {
-                          songs: { name: songDoc.title || '', oid: songDoc._id.toString() },
-                          albums: { name: albumName, oid: albumIdStr },
+                        $setOnInsert: {
+                          name: a.name || '',
+                          image: a.images?.[0]?.url || '',
+                          followers: Number.isInteger(a.followers?.total) ? a.followers.total : 0,
+                          genres: Array.isArray(a.genres) ? a.genres : [],
+                          popularity: Number.isInteger(a.popularity) ? a.popularity : 0,
+                          spotifyUrl: a.external_urls?.spotify || '',
+                          createdAt: nowIsoArtist,
+                          updatedAt: nowIsoArtist,
+                          spotifyArtistId: a.id,
+                          likes: '0',
+                          dislikes: '0',
+                          rating: '0',
+                          reviews: [],
+                          albums: [],
+                          songs: [],
                         },
-                        $set: { updatedAt: nowIso },
-                      }
+                      },
+                      { upsert: true }
                     );
+                    artistDoc = await db.Artists.collection().findOne({ spotifyArtistId: a.id });
                   }
+                } catch {}
+              }
+
+              const artistOidRef = artistDoc?._id?.toString?.() || '';
+              // Derive genres from artist
+              let genresList = [];
+              if (artistDoc?.spotifyArtistId) {
+                try {
+                  const artistRes = await spotify.getArtist(artistDoc.spotifyArtistId);
+                  const aData = artistRes?.data;
+                  if (Array.isArray(aData?.genres)) genresList = aData.genres.slice(0, 20);
+                } catch {}
+              }
+
+              const songSeed = {
+                title: t.name || '',
+                spotifyTrackID: t.id,
+                date: alFull?.release_date || '',
+                genres: genresList,
+                image: Array.isArray(alFull?.images) && alFull.images[0] ? alFull.images[0].url : '',
+                likes: '0',
+                dislikes: '0',
+                rating: '0',
+                artist: { name: artistDoc?.name || artist0t.name || '', oid: artistOidRef, spotifyArtistId: artistDoc?.spotifyArtistId || artist0t.id || '' },
+                album: { name: albumName, oid: albumIdStr || '', spotifyAlbumId: oid },
+                reviews: [],
+              };
+
+              let songDoc = null;
+              try {
+                const up = await songsCol.findOneAndUpdate(
+                  { spotifyTrackID: t.id },
+                  { $setOnInsert: songSeed },
+                  { upsert: true, returnDocument: 'after', projection: { _id: 1, title: 1 } }
+                );
+                songDoc = up?.value || null;
+              } catch (dupErr) {
+                if (dupErr && (dupErr.code === 11000 || /duplicate key/i.test(String(dupErr)))) {
+                  songDoc = await songsCol.findOne(
+                    { spotifyTrackID: t.id },
+                    { projection: { _id: 1, title: 1 } }
+                  );
+                } else {
+                  console.warn('[Songs] upsert failed', dupErr?.message || dupErr);
+                }
+              }
+
+              if (songDoc) {
+                await albumsCol.updateOne(
+                  { spotifyAlbumId: oid },
+                  { $addToSet: { songs: { name: songDoc.title || '', oid: songDoc._id.toString() } }, $set: { updatedAt: nowIso } }
+                );
+                if (artistDoc?._id) {
+                  await db.Artists.collection().updateOne(
+                    { _id: artistDoc._id },
+                    {
+                      $addToSet: {
+                        songs: { name: songDoc.title || '', oid: songDoc._id.toString() },
+                        albums: { name: albumName, oid: albumIdStr || '' },
+                      },
+                      $set: { updatedAt: nowIso },
+                    }
+                  );
                 }
               }
             }
