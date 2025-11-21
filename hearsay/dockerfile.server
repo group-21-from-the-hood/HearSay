@@ -1,0 +1,22 @@
+FROM node:20-alpine
+WORKDIR /app
+
+# Add curl for healthcheck
+RUN apk add --no-cache curl
+
+ENV NODE_ENV=production
+ENV PORT=5174
+ENV HOST=0.0.0.0
+ENV MONGO_HOST=mongodb
+ENV MONGO_PORT=27017
+ENV MONGO_DB_NAME=hearsay
+
+COPY package*.json ./
+RUN npm install --omit=dev
+COPY . .
+EXPOSE 5174
+
+HEALTHCHECK --interval=30s --timeout=3s --retries=3 \
+  CMD curl -fs http://localhost:5174/api/test || exit 1
+
+CMD ["node", "server/index.js"]

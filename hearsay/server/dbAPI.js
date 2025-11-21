@@ -16,39 +16,36 @@ import { MongoClient, ObjectId } from 'mongodb';
 // Load .env so we can read DB credentials if this file is imported directly
 dotenv.config();
 
-// Read env with sensible fallbacks; prefer non-Vite names on the server
-const ENV = process.env;
-const MONGO_USER = ENV.MONGO_USERNAME || ENV.MONGO_USER || ENV.VITE_MONGO_USERNAME || ENV.VITE_MONGO_USER;
-const MONGO_PASS = ENV.MONGO_PASSWORD || ENV.MONGO_PASS || ENV.VITE_MONGO_PASSWORD || ENV.VITE_MONGO_PASS;
-const MONGO_HOST = ENV.MONGO_HOST || ENV.VITE_MONGO_HOST || '127.0.0.1';
-const MONGO_PORT = ENV.MONGO_PORT || ENV.VITE_MONGO_PORT || '27017';
-const MONGO_PROTOCOL = ENV.MONGO_PROTOCOL || ENV.VITE_MONGO_PROTOCOL || 'mongodb'; // or 'mongodb+srv'
-const MONGO_AUTH_SOURCE = ENV.MONGO_AUTH_SOURCE || ENV.VITE_MONGO_AUTH_SOURCE; // optional
+// Read env - only use MONGO_* (ignore VITE_* on server)
+const {
+  MONGO_URI,
+  MONGO_HOST = 'localhost',
+  MONGO_PORT = '27017',
+  MONGO_DB_NAME = 'HearSay',
+  MONGO_USERNAME,
+  MONGO_PASSWORD,
+  MONGO_AUTH_SOURCE
+} = process.env;
 
-const EXPLICIT_URI = ENV.MONGO_URI || ENV.VITE_MONGO_URI;
-const MONGO_URI = EXPLICIT_URI || (() => {
-  const authPart = MONGO_USER ? `${encodeURIComponent(MONGO_USER)}:${encodeURIComponent(MONGO_PASS || '')}@` : '';
-  let uri = `${MONGO_PROTOCOL}://${authPart}${MONGO_HOST}`;
-  if (MONGO_PROTOCOL === 'mongodb' && MONGO_PORT) uri += `:${MONGO_PORT}`;
-  const params = [];
-  if (MONGO_AUTH_SOURCE) params.push(`authSource=${encodeURIComponent(MONGO_AUTH_SOURCE)}`);
-  if (params.length) uri += `/?${params.join('&')}`;
-  return uri;
-})();
+let effectiveMongoUri = MONGO_URI;
+if (!effectiveMongoUri) {
+  const creds = MONGO_USERNAME
+    ? `${encodeURIComponent(MONGO_USERNAME)}:${encodeURIComponent(MONGO_PASSWORD || '')}@`
+    : '';
+  const authSourceParam = MONGO_AUTH_SOURCE ? `authSource=${encodeURIComponent(MONGO_AUTH_SOURCE)}` : '';
+  const params = [authSourceParam].filter(Boolean).join('&');
+  const suffix = params ? `/?${params}` : '';
+  effectiveMongoUri = `mongodb://${creds}${MONGO_HOST}:${MONGO_PORT}${suffix}`;
+}
 
-const MONGO_DB_NAME = ENV.MONGO_DB_NAME || ENV.VITE_MONGO_DB_NAME || 'HearSay';
+console.log('[DB] Effective Mongo URI (sanitized):', effectiveMongoUri.replace(/:[^:@/]+@/, ':****@'));
 
 let client;
 let db;
 
-export async function connectMongo(uri = MONGO_URI, dbName = MONGO_DB_NAME) {
+export async function connectMongo(uri = effectiveMongoUri, dbName = MONGO_DB_NAME) {
   if (db) return db;
   const opts = { maxPoolSize: 10 };
-  // If credentials are not baked into the URI, provide them via options
-  if (!/\/\S*@/.test(uri) && MONGO_USER) {
-    opts.auth = { username: MONGO_USER, password: MONGO_PASS || '' };
-    if (MONGO_AUTH_SOURCE) opts.authSource = MONGO_AUTH_SOURCE;
-  }
   client = new MongoClient(uri, opts);
   await client.connect();
   db = client.db(dbName);
@@ -155,12 +152,12 @@ export const Sessions = makeApi(COL.sessions);
 
 // Convenience starter that you can call once on server boot
 export async function initDb() {
-try{
-  await connectMongo();
-  } catch (e) { 
+  try {
+    await connectMongo();
+  } catch (e) {
     console.error('DB connection failed', e);
     console.log('Server failed to connect to DB, connection failure.');
-     }
+  }
 }
 
 // Create helpful unique indexes to prevent duplicate user documents

@@ -12,6 +12,7 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5174;
+const HOST = process.env.HOST || '0.0.0.0';
 
 // Frontend origin for CORS (cookies), session cookie name/secret and timings
 const ORIGIN = process.env.FRONTEND_ORIGIN || 'http://localhost:5173';
@@ -299,8 +300,8 @@ app.get('/api/profile', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Google auth proxy listening on http://localhost:${PORT}`);
+app.listen(PORT, HOST, () => {
+  console.log(`[SERVER] Listening on http://${HOST}:${PORT}`);
 });
 
 // DB connectivity test: attempts to connect and ping the database
@@ -1574,7 +1575,7 @@ app.get('/api/reviews/top-songs-for-artist', async (req, res) => {
           spotifyUrl: t.external_urls?.spotify,
         });
         if (matched.length >= limit) break;
-      }
+           }
     }
     return res.json({ ok: true, songs: matched });
   } catch (e) {
