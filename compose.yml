@@ -33,8 +33,22 @@ services:
       - "5174:5174"
     environment:
       NODE_ENV: production
-    env_file:
-      - ./hearsay/.env
+      API_ORIGIN
+      SESSION_SECRET
+      SESSION_NAME
+      SESSION_TTL_SECONDS
+      SESSION_ROTATE_MS
+      SESSIONS_COLLECTION
+      MONGO_HOST
+      MONGO_PORT
+      MONGO_DB_NAME
+      MONGO_USERNAME
+      MONGO_PASSWORD
+      MONGO_AUTH_SOURCE
+      GOOGLE_CLIENT_ID
+      GOOGLE_CLIENT_SECRET
+      SPOTIFY_CLIENT_ID
+      SPOTIFY_CLIENT_SECRET
     restart: unless-stopped # Restart policy
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:5174/api/health"]
@@ -44,6 +58,8 @@ services:
     networks:
       app-network:
         ipv4_address: 172.19.0.103
+    depends_on:
+      - mongodb
   
   frontend:
     build: 
@@ -55,6 +71,7 @@ services:
     environment:
       VITE_API_BASE: /api
       NODE_ENV: production
+    restart: unless-stopped # Restart policy
     depends_on:
       - backend
     networks:
