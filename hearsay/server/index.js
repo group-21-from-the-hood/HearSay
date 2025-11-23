@@ -120,7 +120,6 @@ app.use(
       secure: process.env.NODE_ENV === 'production', // HTTPS in prod
       sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
       maxAge: SESSION_TTL_NUM * 1000,
-      domain: process.env.NODE_ENV === 'production' ? '.hear-say.xyz' : undefined, // Allow subdomain sharing
       path: '/',
     },
     store: MongoStore.create({
@@ -1613,6 +1612,7 @@ app.get('/api/reviews/top-songs-for-artist', async (req, res) => {
     // Aggregate ratings for songs; limit candidates to reduce track fetch volume
     const pipeline = [
       { $match: { 'item.type': 'song', rating: { $type: 'int', $gt: 0 } } },
+     
       { $group: { _id: '$item.oid', avgRatingScaled: { $avg: '$rating' }, count: { $sum: 1 } } },
       { $sort: { avgRatingScaled: -1, count: -1 } },
       { $limit: 300 },
