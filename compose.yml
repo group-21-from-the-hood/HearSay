@@ -19,6 +19,8 @@ services:
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
+    env_file:
+      - ./hearsay/.env.production
     restart: unless-stopped # Restart policy
     networks:
       app-network:
