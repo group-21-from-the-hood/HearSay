@@ -89,8 +89,6 @@ app.use((req, res, next) => {
 });
 
 app.use(express.json());
-// Trust proxy when behind one (uncomment if deploying behind reverse proxy)
-// app.set('trust proxy', 1);  // REMOVE THIS LINE
 
 // Ensure DB is connected before wiring sessions so the store uses auth'd client
 await db.connectMongo().catch((err) => {
