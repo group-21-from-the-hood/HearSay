@@ -45,15 +45,37 @@ const SESSION_ROTATE_MS_NUM = parseInt(SESSION_ROTATE_MS, 10) || 3600000;
 const app = express();
 const PORT = process.env.PORT || 5174;
 
-const origins = (process.env.API_ORIGIN || '').split(',').map(o => o.trim()).filter(Boolean)
+// REPLACE old CORS block (origins / app.use(cors({...}))) with:
+const allowedOrigins = (process.env.API_ORIGIN || '')
+  .split(',')
+  .map(o => o.trim())
+  .filter(Boolean);
+
+console.log('[CONFIG] Allowed origins:', allowedOrigins);
+
+app.set('trust proxy', 1); // behind nginx proxy manager
+
 app.use(cors({
   origin: (origin, cb) => {
-    if (!origin) return cb(null, true)
-    if (origins.includes(origin)) return cb(null, true)
-    return cb(new Error('CORS blocked: ' + origin))
+    if (!origin) return cb(null, true); // curl / same-origin
+    if (allowedOrigins.includes(origin)) return cb(null, true);
+    console.warn('[CORS] Blocked origin:', origin);
+    return cb(new Error('CORS blocked: ' + origin));
   },
-  credentials: true
+  credentials: true,
 }));
+
+app.options('*', (req, res) => {
+  const origin = req.headers.origin;
+  if (origin && allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+  }
+  res.sendStatus(204);
+});
+
 app.use(express.json());
 // Trust proxy when behind one (uncomment if deploying behind reverse proxy)
 // app.set('trust proxy', 1);
@@ -84,7 +106,8 @@ app.use(
     rolling: true,
     cookie: {
       httpOnly: true,
-      secure: false,
+      secure: process.env.NODE_ENV === 'production', // HTTPS in prod
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
       maxAge: SESSION_TTL_NUM * 1000,
     },
     store: MongoStore.create({
@@ -1580,6 +1603,7 @@ app.get('/api/reviews/top-songs-for-artist', async (req, res) => {
       { $limit: 300 },
     ];
     const aggResults = await reviewsCol.aggregate(pipeline).toArray();
+
     if (!aggResults.length) return res.json({ ok: true, songs: [] });
 
     // Fetch track details in batches and filter by artist
