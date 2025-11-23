@@ -58,18 +58,6 @@ const PORT = process.env.PORT || 5174;
 // Trust proxy when behind one (must be set before CORS and session middleware)
 app.set('trust proxy', 1);
 
-// Add middleware to ensure req.secure is set correctly
-app.use((req, res, next) => {
-  // In production, check X-Forwarded-Proto header
-  if (process.env.NODE_ENV === 'production') {
-    const proto = req.headers['x-forwarded-proto'];
-    if (proto === 'https') {
-      req.secure = true;
-    }
-  }
-  next();
-});
-
 // REPLACE old CORS block (origins / app.use(cors({...}))) with:
 const origins = (process.env.API_ORIGIN || '')
   .split(',')
@@ -130,7 +118,7 @@ app.use(
     cookie: {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'lax' : 'lax',
+      sameSite: 'lax', // Changed to 'lax' for both dev and prod
       maxAge: SESSION_TTL_NUM * 1000,
       path: '/',
     },
