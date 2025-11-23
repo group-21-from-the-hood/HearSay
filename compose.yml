@@ -84,4 +84,6 @@ services:
     volumes:
       - ./nginxrevproxy/data:/data
       - ./nginxrevproxy/letsencrypt:/etc/letsencrypt   
-    
+    networks:
+      app-network:
+        ipv4_address: 172.19.0.104
