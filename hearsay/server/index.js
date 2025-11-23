@@ -55,13 +55,14 @@ const SESSION_ROTATE_MS_NUM = parseInt(SESSION_ROTATE_MS, 10) || 3600000;
 const app = express();
 const PORT = process.env.PORT || 5174;
 
+// Trust proxy when behind one (must be set before CORS and session middleware)
+app.set('trust proxy', 1);
+
 // REPLACE old CORS block (origins / app.use(cors({...}))) with:
 const origins = (process.env.API_ORIGIN || '')
   .split(',')
   .map(o => o.trim())
   .filter(Boolean);
-
-app.set('trust proxy', 1);
 
 app.use(cors({
   origin: (origin, cb) => {
@@ -89,7 +90,7 @@ app.use((req, res, next) => {
 
 app.use(express.json());
 // Trust proxy when behind one (uncomment if deploying behind reverse proxy)
-// app.set('trust proxy', 1);
+// app.set('trust proxy', 1);  // REMOVE THIS LINE
 
 // Ensure DB is connected before wiring sessions so the store uses auth'd client
 await db.connectMongo().catch((err) => {
