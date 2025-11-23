@@ -1,0 +1,25 @@
+networks: 
+  app-network:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.19.0.0/24
+          gateway: 172.19.0.1
+  
+services:
+
+  mongodb:
+    image: mongo:latest # Or specify a version like mongo:6.0
+    container_name: hearsay_mongodb
+    ports:
+      - "27017:27017" # Map host port 27017 to container port 27017
+    volumes:
+      - ./db/data:/data/db # Persist data in a named volume
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
+    restart: unless-stopped # Restart policy
+    networks:
+      app-network:
+        ipv4_address: 172.19.0.101

@@ -1,4 +1,14 @@
 import dotenv from 'dotenv';
+
+const envFile =
+  process.env.NODE_ENV === 'production'
+    ? '.env.production'
+    : '.env.development';
+
+dotenv.config({ path: envFile });
+
+console.log('[CONFIG] Loaded env file:', envFile);
+
 import express from 'express';
 import cors from 'cors';
 import session from 'express-session';
@@ -46,13 +56,10 @@ const app = express();
 const PORT = process.env.PORT || 5174;
 
 // REPLACE old CORS block (origins / app.use(cors({...}))) with:
-const allowedOrigins = (process.env.API_ORIGIN || '')
+const origins = (process.env.API_ORIGIN || '')
   .split(',')
   .map(o => o.trim())
   .filter(Boolean);
-
-console.log('[CONFIG] API_ORIGIN raw:', process.env.API_ORIGIN);
-console.log('[CONFIG] Allowed origins:', allowedOrigins);
 
 app.set('trust proxy', 1);
 
@@ -60,9 +67,7 @@ app.use(cors({
   origin: (origin, cb) => {
     // Allow requests with no origin (server-to-server) and same-origin
     if (!origin) return cb(null, true);
-    if (allowedOrigins.includes(origin)) return cb(null, true);
-    if (origin === 'https://hear-say.xyz') return cb(null, true); // explicit prod domain
-    console.warn('[CORS] Blocked origin:', origin);
+    if (origins.includes(origin)) return cb(null, true);
     return cb(new Error('CORS blocked: ' + origin));
   },
   credentials: true,
@@ -71,7 +76,7 @@ app.use(cors({
 app.use((req, res, next) => {
   if (req.method === 'OPTIONS') {
     const origin = req.headers.origin;
-    if (origin && (allowedOrigins.includes(origin) || origin === 'https://hear-say.xyz')) {
+    if (origin && origins.includes(origin)) {
       res.header('Access-Control-Allow-Origin', origin);
       res.header('Access-Control-Allow-Credentials', 'true');
     }
