@@ -1624,63 +1624,63 @@ app.get('/api/reviews/top-songs-for-artist', async (req, res) => {
     // Fetch track details in batches and filter by artist
     const trackIds = aggResults.map(r => r._id);
     const matched = [];
-    for (let i = 0; i < trackIds.length && matched.length < limit; i += 50) {ata) continue; // skip failures silently
-      const chunk = trackIds.slice(i, i + 50);y.isArray(resp.data?.tracks) ? resp.data.tracks : [];
+    for (let i = 0; i < trackIds.length && matched.length < limit; i += 50) {
+      const chunk = trackIds.slice(i, i + 50);
+      const resp = await spotify.getSeveralTracks(chunk);
+      if (resp.error && !resp.data) continue; // skip failures silently
       const tracks = Array.isArray(resp.data?.tracks) ? resp.data.tracks : [];
       for (const t of tracks) {
-        if (!t) continue; t.artists.some(a => a?.id === artistId);
-        const artistMatches = Array.isArray(t.artists) && t.artists.some(a => a?.id === artistId); continue;
-        if (!artistMatches) continue;gResults.find(r => r._id === t.id);
-        const agg = aggResults.find(r => r._id === t.id);ontinue;
+        if (!t) continue;
+        const artistMatches = Array.isArray(t.artists) && t.artists.some(a => a?.id === artistId);
+        if (!artistMatches) continue;
+        const agg = aggResults.find(r => r._id === t.id);
         if (!agg) continue;
         matched.push({
           id: t.id,
-          title: t.name,an),
-          artists: (t.artists || []).map(a => a.name).filter(Boolean),es?.[0]?.url,
-          coverArt: t.album?.images?.[0]?.url,d / 2).toFixed(2)),
-          avgRating: Number((agg.avgRatingScaled / 2).toFixed(2)),eviewCount: agg.count,
-          reviewCount: agg.count,ify,
-          spotifyUrl: t.external_urls?.spotify, });
-        });   if (matched.length >= limit) break;
+          title: t.name,
+          artists: (t.artists || []).map(a => a.name).filter(Boolean),
+          coverArt: t.album?.images?.[0]?.url,
+          avgRating: Number((agg.avgRatingScaled / 2).toFixed(2)),
+          reviewCount: agg.count,
+          spotifyUrl: t.external_urls?.spotify,
+        });
         if (matched.length >= limit) break;
       }
     }
     return res.json({ ok: true, songs: matched });
-  } catch (e) { console.error('[Reviews] top songs for artist error', e);
-    console.error('[Reviews] top songs for artist error', e); return res.status(500).json({ ok: false, error: 'server_error' });
-    return res.status(500).json({ ok: false, error: 'server_error' });  }
+  } catch (e) {
+    console.error('[Reviews] top songs for artist error', e);
+    return res.status(500).json({ ok: false, error: 'server_error' });
   }
 });
------
-// ---------------- App Data: Artists ----------------rn saved artist document if present (prefer this before hitting Spotify)
-// Return saved artist document if present (prefer this before hitting Spotify)sync (req, res) => {
+
+// ---------------- App Data: Artists ----------------
+// Return saved artist document if present (prefer this before hitting Spotify)
 app.get('/api/artists/:id', async (req, res) => {
   try {
-    const id = req.params.id;ror: 'invalid_artist' });
+    const id = req.params.id;
     if (!id || typeof id !== 'string') return res.status(400).json({ ok: false, error: 'invalid_artist' });
-    const artistsCol = db.Artists.collection();rtistId for external calls
-    // Artists are uniquely identified by their spotifyArtistId for external callst = await artistsCol.findOne({ spotifyArtistId: id }, { projection: { _id: 0 } });
+    const artistsCol = db.Artists.collection();
+    // Artists are uniquely identified by their spotifyArtistId for external calls
     const artist = await artistsCol.findOne({ spotifyArtistId: id }, { projection: { _id: 0 } });
     return res.json({ ok: true, data: artist || null });
-  } catch (e) { console.error('[Artists] get saved artist error', e);
-    console.error('[Artists] get saved artist error', e); return res.status(500).json({ ok: false, error: 'server_error' });
-    return res.status(500).json({ ok: false, error: 'server_error' });  }
+  } catch (e) {
+    console.error('[Artists] get saved artist error', e);
+    return res.status(500).json({ ok: false, error: 'server_error' });
   }
 });
-rn saved album document if present (prefer this before hitting Spotify)
-// Return saved album document if present (prefer this before hitting Spotify)ync (req, res) => {
+
+// Return saved album document if present (prefer this before hitting Spotify)
 app.get('/api/albums/:id', async (req, res) => {
   try {
-    const id = req.params.id;tring') return res.status(400).json({ ok: false, error: 'invalid_album' });
+    const id = req.params.id;
     if (!id || typeof id !== 'string') return res.status(400).json({ ok: false, error: 'invalid_album' });
     const albumsCol = db.Albums.collection();
-    // Stored by spotifyAlbumId = await albumsCol.findOne({ spotifyAlbumId: id }, { projection: { _id: 0 } });
+    // Stored by spotifyAlbumId
     const album = await albumsCol.findOne({ spotifyAlbumId: id }, { projection: { _id: 0 } });
     return res.json({ ok: true, data: album || null });
-  } catch (e) { console.error('[Albums] get saved album error', e);
-    console.error('[Albums] get saved album error', e); return res.status(500).json({ ok: false, error: 'server_error' });
-
-
-
-});  }    return res.status(500).json({ ok: false, error: 'server_error' });  }
+  } catch (e) {
+    console.error('[Albums] get saved album error', e);
+    return res.status(500).json({ ok: false, error: 'server_error' });
+  }
 });
