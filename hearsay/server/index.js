@@ -69,6 +69,7 @@ app.use(cors({
     // Allow requests with no origin (server-to-server) and same-origin
     if (!origin) return cb(null, true);
     if (origins.includes(origin)) return cb(null, true);
+    console.warn('[CORS] Blocked origin:', origin, 'Allowed:', origins);
     return cb(new Error('CORS blocked: ' + origin));
   },
   credentials: true,
@@ -119,6 +120,8 @@ app.use(
       secure: process.env.NODE_ENV === 'production', // HTTPS in prod
       sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
       maxAge: SESSION_TTL_NUM * 1000,
+      domain: process.env.NODE_ENV === 'production' ? '.hear-say.xyz' : undefined, // Allow subdomain sharing
+      path: '/',
     },
     store: MongoStore.create({
       client: db.getClient(),
@@ -305,6 +308,8 @@ app.post('/api/auth/google/exchange', async (req, res) => {
 
     // Persist session then respond with a trimmed payload
     await new Promise((resolve, reject) => req.session.save(err => err ? reject(err) : resolve()));
+
+    console.log('[AUTH] Session saved. SessionID:', req.sessionID, 'Cookie will be:', SESSION_NAME);
 
     return res.json({ ok: true, user: req.session.user });
   } catch (err) {
@@ -1619,63 +1624,63 @@ app.get('/api/reviews/top-songs-for-artist', async (req, res) => {
     // Fetch track details in batches and filter by artist
     const trackIds = aggResults.map(r => r._id);
     const matched = [];
-    for (let i = 0; i < trackIds.length && matched.length < limit; i += 50) {
-      const chunk = trackIds.slice(i, i + 50);
-      const resp = await spotify.getSeveralTracks(chunk);
-      if (resp.error && !resp.data) continue; // skip failures silently
+    for (let i = 0; i < trackIds.length && matched.length < limit; i += 50) {ata) continue; // skip failures silently
+      const chunk = trackIds.slice(i, i + 50);y.isArray(resp.data?.tracks) ? resp.data.tracks : [];
       const tracks = Array.isArray(resp.data?.tracks) ? resp.data.tracks : [];
       for (const t of tracks) {
-        if (!t) continue;
-        const artistMatches = Array.isArray(t.artists) && t.artists.some(a => a?.id === artistId);
-        if (!artistMatches) continue;
-        const agg = aggResults.find(r => r._id === t.id);
+        if (!t) continue; t.artists.some(a => a?.id === artistId);
+        const artistMatches = Array.isArray(t.artists) && t.artists.some(a => a?.id === artistId); continue;
+        if (!artistMatches) continue;gResults.find(r => r._id === t.id);
+        const agg = aggResults.find(r => r._id === t.id);ontinue;
         if (!agg) continue;
         matched.push({
           id: t.id,
-          title: t.name,
-          artists: (t.artists || []).map(a => a.name).filter(Boolean),
-          coverArt: t.album?.images?.[0]?.url,
-          avgRating: Number((agg.avgRatingScaled / 2).toFixed(2)),
-          reviewCount: agg.count,
-          spotifyUrl: t.external_urls?.spotify,
-        });
+          title: t.name,an),
+          artists: (t.artists || []).map(a => a.name).filter(Boolean),es?.[0]?.url,
+          coverArt: t.album?.images?.[0]?.url,d / 2).toFixed(2)),
+          avgRating: Number((agg.avgRatingScaled / 2).toFixed(2)),eviewCount: agg.count,
+          reviewCount: agg.count,ify,
+          spotifyUrl: t.external_urls?.spotify, });
+        });   if (matched.length >= limit) break;
         if (matched.length >= limit) break;
       }
     }
     return res.json({ ok: true, songs: matched });
-  } catch (e) {
-    console.error('[Reviews] top songs for artist error', e);
-    return res.status(500).json({ ok: false, error: 'server_error' });
+  } catch (e) { console.error('[Reviews] top songs for artist error', e);
+    console.error('[Reviews] top songs for artist error', e); return res.status(500).json({ ok: false, error: 'server_error' });
+    return res.status(500).json({ ok: false, error: 'server_error' });  }
   }
 });
-
-// ---------------- App Data: Artists ----------------
-// Return saved artist document if present (prefer this before hitting Spotify)
+-----
+// ---------------- App Data: Artists ----------------rn saved artist document if present (prefer this before hitting Spotify)
+// Return saved artist document if present (prefer this before hitting Spotify)sync (req, res) => {
 app.get('/api/artists/:id', async (req, res) => {
   try {
-    const id = req.params.id;
+    const id = req.params.id;ror: 'invalid_artist' });
     if (!id || typeof id !== 'string') return res.status(400).json({ ok: false, error: 'invalid_artist' });
-    const artistsCol = db.Artists.collection();
-    // Artists are uniquely identified by their spotifyArtistId for external calls
+    const artistsCol = db.Artists.collection();rtistId for external calls
+    // Artists are uniquely identified by their spotifyArtistId for external callst = await artistsCol.findOne({ spotifyArtistId: id }, { projection: { _id: 0 } });
     const artist = await artistsCol.findOne({ spotifyArtistId: id }, { projection: { _id: 0 } });
     return res.json({ ok: true, data: artist || null });
-  } catch (e) {
-    console.error('[Artists] get saved artist error', e);
-    return res.status(500).json({ ok: false, error: 'server_error' });
+  } catch (e) { console.error('[Artists] get saved artist error', e);
+    console.error('[Artists] get saved artist error', e); return res.status(500).json({ ok: false, error: 'server_error' });
+    return res.status(500).json({ ok: false, error: 'server_error' });  }
   }
 });
-
-// Return saved album document if present (prefer this before hitting Spotify)
+rn saved album document if present (prefer this before hitting Spotify)
+// Return saved album document if present (prefer this before hitting Spotify)ync (req, res) => {
 app.get('/api/albums/:id', async (req, res) => {
   try {
-    const id = req.params.id;
+    const id = req.params.id;tring') return res.status(400).json({ ok: false, error: 'invalid_album' });
     if (!id || typeof id !== 'string') return res.status(400).json({ ok: false, error: 'invalid_album' });
     const albumsCol = db.Albums.collection();
-    // Stored by spotifyAlbumId
+    // Stored by spotifyAlbumId = await albumsCol.findOne({ spotifyAlbumId: id }, { projection: { _id: 0 } });
     const album = await albumsCol.findOne({ spotifyAlbumId: id }, { projection: { _id: 0 } });
     return res.json({ ok: true, data: album || null });
-  } catch (e) {
-    console.error('[Albums] get saved album error', e);
-    return res.status(500).json({ ok: false, error: 'server_error' });
-  }
+  } catch (e) { console.error('[Albums] get saved album error', e);
+    console.error('[Albums] get saved album error', e); return res.status(500).json({ ok: false, error: 'server_error' });
+
+
+
+});  }    return res.status(500).json({ ok: false, error: 'server_error' });  }
 });
