@@ -70,3 +70,18 @@ services:
         ipv4_address: 172.19.0.102
     depends_on:
       - backend
+
+  nginx-rev-proxy:
+    container_name: hearsay_reverseproxy
+    image: 'jc21/nginx-proxy-manager:latest'
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8181:81"
+    environment:
+      TZ: "America/Toronto"
+    volumes:
+      - ./nginxrevproxy/data:/data
+      - ./nginxrevproxy/letsencrypt:/etc/letsencrypt   
+    
