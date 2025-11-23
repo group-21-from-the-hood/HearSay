@@ -51,29 +51,35 @@ const allowedOrigins = (process.env.API_ORIGIN || '')
   .map(o => o.trim())
   .filter(Boolean);
 
+console.log('[CONFIG] API_ORIGIN raw:', process.env.API_ORIGIN);
 console.log('[CONFIG] Allowed origins:', allowedOrigins);
 
-app.set('trust proxy', 1); // behind nginx proxy manager
+app.set('trust proxy', 1);
 
 app.use(cors({
   origin: (origin, cb) => {
-    if (!origin) return cb(null, true); // curl / same-origin
+    // Allow requests with no origin (server-to-server) and same-origin
+    if (!origin) return cb(null, true);
     if (allowedOrigins.includes(origin)) return cb(null, true);
+    if (origin === 'https://hear-say.xyz') return cb(null, true); // explicit prod domain
     console.warn('[CORS] Blocked origin:', origin);
     return cb(new Error('CORS blocked: ' + origin));
   },
   credentials: true,
 }));
 
-app.options('*', (req, res) => {
-  const origin = req.headers.origin;
-  if (origin && allowedOrigins.includes(origin)) {
-    res.header('Access-Control-Allow-Origin', origin);
-    res.header('Access-Control-Allow-Credentials', 'true');
+app.use((req, res, next) => {
+  if (req.method === 'OPTIONS') {
+    const origin = req.headers.origin;
+    if (origin && (allowedOrigins.includes(origin) || origin === 'https://hear-say.xyz')) {
+      res.header('Access-Control-Allow-Origin', origin);
+      res.header('Access-Control-Allow-Credentials', 'true');
+    }
     res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+    return res.sendStatus(204);
   }
-  res.sendStatus(204);
+  next();
 });
 
 app.use(express.json());
