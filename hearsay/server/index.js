@@ -1,4 +1,14 @@
 import dotenv from 'dotenv';
+
+const envFile =
+  process.env.NODE_ENV === 'production'
+    ? '.env.production'
+    : '.env.development';
+
+dotenv.config({ path: envFile });
+
+console.log('[CONFIG] Loaded env file:', envFile);
+
 import express from 'express';
 import cors from 'cors';
 import session from 'express-session';
@@ -45,24 +55,21 @@ const SESSION_ROTATE_MS_NUM = parseInt(SESSION_ROTATE_MS, 10) || 3600000;
 const app = express();
 const PORT = process.env.PORT || 5174;
 
+// Trust proxy when behind one (must be set before CORS and session middleware)
+app.set('trust proxy', 1);
+
 // REPLACE old CORS block (origins / app.use(cors({...}))) with:
-const allowedOrigins = (process.env.API_ORIGIN || '')
+const origins = (process.env.API_ORIGIN || '')
   .split(',')
   .map(o => o.trim())
   .filter(Boolean);
-
-console.log('[CONFIG] API_ORIGIN raw:', process.env.API_ORIGIN);
-console.log('[CONFIG] Allowed origins:', allowedOrigins);
-
-app.set('trust proxy', 1);
 
 app.use(cors({
   origin: (origin, cb) => {
     // Allow requests with no origin (server-to-server) and same-origin
     if (!origin) return cb(null, true);
-    if (allowedOrigins.includes(origin)) return cb(null, true);
-    if (origin === 'https://hear-say.xyz') return cb(null, true); // explicit prod domain
-    console.warn('[CORS] Blocked origin:', origin);
+    if (origins.includes(origin)) return cb(null, true);
+    console.warn('[CORS] Blocked origin:', origin, 'Allowed:', origins);
     return cb(new Error('CORS blocked: ' + origin));
   },
   credentials: true,
@@ -71,7 +78,7 @@ app.use(cors({
 app.use((req, res, next) => {
   if (req.method === 'OPTIONS') {
     const origin = req.headers.origin;
-    if (origin && (allowedOrigins.includes(origin) || origin === 'https://hear-say.xyz')) {
+    if (origin && origins.includes(origin)) {
       res.header('Access-Control-Allow-Origin', origin);
       res.header('Access-Control-Allow-Credentials', 'true');
     }
@@ -83,8 +90,6 @@ app.use((req, res, next) => {
 });
 
 app.use(express.json());
-// Trust proxy when behind one (uncomment if deploying behind reverse proxy)
-// app.set('trust proxy', 1);
 
 // Ensure DB is connected before wiring sessions so the store uses auth'd client
 await db.connectMongo().catch((err) => {
@@ -112,9 +117,10 @@ app.use(
     rolling: true,
     cookie: {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production', // HTTPS in prod
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax', // Changed to 'lax' for both dev and prod
       maxAge: SESSION_TTL_NUM * 1000,
+      path: '/',
     },
     store: MongoStore.create({
       client: db.getClient(),
@@ -301,6 +307,8 @@ app.post('/api/auth/google/exchange', async (req, res) => {
 
     // Persist session then respond with a trimmed payload
     await new Promise((resolve, reject) => req.session.save(err => err ? reject(err) : resolve()));
+
+    console.log('[AUTH] Session saved. SessionID:', req.sessionID, 'Cookie will be:', SESSION_NAME);
 
     return res.json({ ok: true, user: req.session.user });
   } catch (err) {
@@ -1604,6 +1612,7 @@ app.get('/api/reviews/top-songs-for-artist', async (req, res) => {
     // Aggregate ratings for songs; limit candidates to reduce track fetch volume
     const pipeline = [
       { $match: { 'item.type': 'song', rating: { $type: 'int', $gt: 0 } } },
+     
       { $group: { _id: '$item.oid', avgRatingScaled: { $avg: '$rating' }, count: { $sum: 1 } } },
       { $sort: { avgRatingScaled: -1, count: -1 } },
       { $limit: 300 },

@@ -19,6 +19,8 @@ services:
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
+    env_file:
+      - ./hearsay/.env.production
     restart: unless-stopped # Restart policy
     networks:
       app-network:
@@ -34,7 +36,7 @@ services:
     environment:
       NODE_ENV: production
     env_file:
-      - ./hearsay/.env
+      - ./hearsay/.env.production
     restart: unless-stopped # Restart policy
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:5174/api/health"]
@@ -58,7 +60,7 @@ services:
       NODE_ENV: production
       VITE_API_BASE: /api
     env_file:
-      - ./hearsay/.env
+      - ./hearsay/.env.production
     restart: unless-stopped # Restart policy
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://backend:5174/api/health"]

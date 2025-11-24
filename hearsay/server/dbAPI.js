@@ -13,17 +13,21 @@
 import dotenv from 'dotenv';
 import { MongoClient, ObjectId } from 'mongodb';
 
-// Load .env so we can read DB credentials if this file is imported directly
-dotenv.config();
+// Load env file based on NODE_ENV (same logic as index.js)
+const envFile = process.env.NODE_ENV === 'production' ? '.env.production' : '.env.development';
+dotenv.config({ path: envFile });
 
-// Read env with sensible fallbacks; prefer non-Vite names on the server
+console.log('[DB-INIT] Loaded env:', envFile);
+
+// Read env with sensible fallbacks
 const ENV = process.env;
 const MONGO_USER = ENV.MONGO_USERNAME || ENV.MONGO_USER || ENV.VITE_MONGO_USERNAME || ENV.VITE_MONGO_USER;
 const MONGO_PASS = ENV.MONGO_PASSWORD || ENV.MONGO_PASS || ENV.VITE_MONGO_PASSWORD || ENV.VITE_MONGO_PASS;
-const MONGO_HOST = ENV.MONGO_HOST || ENV.VITE_MONGO_HOST || '127.0.0.1';
+const MONGO_HOST = ENV.MONGO_HOST || ENV.VITE_MONGO_HOST || 'localhost';
 const MONGO_PORT = ENV.MONGO_PORT || ENV.VITE_MONGO_PORT || '27017';
-const MONGO_PROTOCOL = ENV.MONGO_PROTOCOL || ENV.VITE_MONGO_PROTOCOL || 'mongodb'; // or 'mongodb+srv'
-const MONGO_AUTH_SOURCE = ENV.MONGO_AUTH_SOURCE || ENV.VITE_MONGO_AUTH_SOURCE; // optional
+const MONGO_PROTOCOL = ENV.MONGO_PROTOCOL || ENV.VITE_MONGO_PROTOCOL || 'mongodb';
+const MONGO_AUTH_SOURCE = ENV.MONGO_AUTH_SOURCE || ENV.VITE_MONGO_AUTH_SOURCE || 'admin';
+const MONGO_DB_NAME = ENV.MONGO_DB_NAME || ENV.VITE_MONGO_DB_NAME || 'hearsay';
 
 const EXPLICIT_URI = ENV.MONGO_URI || ENV.VITE_MONGO_URI;
 const MONGO_URI = EXPLICIT_URI || (() => {
@@ -36,7 +40,7 @@ const MONGO_URI = EXPLICIT_URI || (() => {
   return uri;
 })();
 
-const MONGO_DB_NAME = ENV.MONGO_DB_NAME || ENV.VITE_MONGO_DB_NAME || 'HearSay';
+console.log('[DB] Connecting to:', MONGO_URI.replace(/:[^:@]+@/, ':****@')); // hide password in log
 
 let client;
 let db;
@@ -155,12 +159,12 @@ export const Sessions = makeApi(COL.sessions);
 
 // Convenience starter that you can call once on server boot
 export async function initDb() {
-try{
-  await connectMongo();
-  } catch (e) { 
+  try {
+    await connectMongo();
+  } catch (e) {
     console.error('DB connection failed', e);
     console.log('Server failed to connect to DB, connection failure.');
-     }
+  }
 }
 
 // Create helpful unique indexes to prevent duplicate user documents
@@ -172,7 +176,6 @@ export async function ensureUserIndexes() {
       { email: 1 },
       {
         unique: true,
-        // Only enforce uniqueness when email is a string (skip missing/null)
         partialFilterExpression: { email: { $type: 'string' } },
         name: 'uniq_email_if_string',
       }
@@ -186,7 +189,6 @@ export async function ensureUserIndexes() {
       { 'accounts.kind': 1, 'accounts.uid': 1 },
       {
         unique: true,
-        // Enforce only when both kind and uid are strings
         partialFilterExpression: {
           'accounts.uid': { $type: 'string' },
           'accounts.kind': { $type: 'string' },
@@ -224,6 +226,7 @@ export async function ensureReviewIndexes() {
 export default {
   connectMongo,
   getDb,
+  getClient,
   closeMongo,
   initDb,
   ensureUserIndexes,

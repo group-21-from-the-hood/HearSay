@@ -24,13 +24,11 @@ export default function AuthCallback() {
     (async () => {
       const params = new URLSearchParams(window.location.search);
       const code = params.get('code');
-      const state = params.get('state');
       if (!code) {
         setError('No code returned from Google');
         return;
       }
 
-      // Try localStorage first (more robust across redirects/tabs), fall back to sessionStorage
       let code_verifier = null;
       try {
         code_verifier = localStorage.getItem('google_pkce_verifier') || sessionStorage.getItem('google_pkce_verifier');
@@ -38,14 +36,13 @@ export default function AuthCallback() {
         code_verifier = sessionStorage.getItem('google_pkce_verifier');
       }
       if (!code_verifier) {
-        console.error('Missing PKCE verifier in storage. Expected google_pkce_verifier in localStorage or sessionStorage.');
-        setError('Missing PKCE verifier in storage. Make sure you completed the login in the same tab and that your redirect URI matches the app origin.');
+        console.error('Missing PKCE verifier in storage.');
+        setError('Missing PKCE verifier. Make sure you completed the login in the same tab.');
         return;
       }
 
       try {
         const redirectUri = import.meta.env.VITE_GOOGLE_REDIRECT_URI || `${window.location.origin}/auth/callback`;
-        // Use backend proxy (through Vite) to perform token exchange and set session cookie
         const proxyRes = await fetch(`/api/auth/google/exchange`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -55,26 +52,34 @@ export default function AuthCallback() {
 
         if (!proxyRes.ok) {
           const errText = await proxyRes.text().catch(() => null);
-          console.error('Proxy exchange failed response:', proxyRes.status, proxyRes.statusText, errText);
-          throw new Error(`Token exchange failed: ${proxyRes.status} ${proxyRes.statusText} ${errText || ''}`);
+          console.error('Proxy exchange failed:', proxyRes.status, errText);
+          throw new Error(`Token exchange failed: ${proxyRes.status} ${errText || ''}`);
         }
 
-        const { user } = await proxyRes.json();
+        await proxyRes.json();
 
-        // Optionally cache minimal profile on client for UI convenience
-        try {
-          localStorage.setItem('hs_user', JSON.stringify(user));
-        } catch {}
-
-        // Clean up verifier from storage
+        // Clean up verifier
         try {
           localStorage.removeItem('google_pkce_verifier');
-        } catch (e) {
+        } catch {
           sessionStorage.removeItem('google_pkce_verifier');
         }
 
-        // Notify app and redirect home
-        emitAuthChange({ authenticated: true, user });
+        // Fetch fresh session state from server to ensure auth is reflected
+        const meRes = await fetch('/api/me', { credentials: 'include' });
+        if (meRes.ok) {
+          const meData = await meRes.json();
+          if (meData.authenticated) {
+            // Cache user for UI convenience
+            try {
+              localStorage.setItem('hs_user', JSON.stringify(meData.user));
+            } catch {}
+            // Notify app of auth state change
+            emitAuthChange({ authenticated: true, user: meData.user });
+          }
+        }
+
+        // Redirect home
         navigate('/');
       } catch (e) {
         console.error(e);
