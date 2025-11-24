@@ -170,8 +170,20 @@ app.use((req, res, next) => {
 // Simple request logging to help diagnose requests from the frontend (method, url, small body preview)
 app.use((req, res, next) => {
   try {
-    const previewBody = req.body && Object.keys(req.body).length ? JSON.stringify(req.body).slice(0, 100) : '';
-    console.log('[SERVER] Incoming', req.method, req.originalUrl, previewBody ? `body=${previewBody}` : '');
+    let safeBody = null;
+    if (req.body && typeof req.body === 'object' && Object.keys(req.body).length) {
+      // Shallow clone and mask password-like fields
+      const clone = { ...req.body };
+      for (const k of Object.keys(clone)) {
+        if (/password|pwd|secret|token/i.test(k)) {
+          // Preserve length info without exposing value
+          const v = typeof clone[k] === 'string' ? clone[k] : '';
+          clone[k] = v ? `***masked(len=${v.length})***` : '***masked***';
+        }
+      }
+      safeBody = JSON.stringify(clone).slice(0, 300); // longer slice since we masked sensitive values
+    }
+    console.log('[SERVER] Incoming', req.method, req.originalUrl, safeBody ? `body=${safeBody}` : '');
   } catch (e) {
     console.log('[SERVER] Incoming', req.method, req.originalUrl);
   }
