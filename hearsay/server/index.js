@@ -58,13 +58,13 @@ const PORT = process.env.PORT || 5174;
 
 // Frontend origin for CORS (cookies), session cookie name/secret and timings
 //const ORIGIN = process.env.FRONTEND_ORIGIN || 'http://localhost:5173';
-const SESSION_NAME = process.env.SESSION_NAME || 'hsid';
-const SESSION_SECRET = process.env.SESSION_SECRET || 'dev-insecure-secret';
-const SESSION_TTL_SECONDS = parseInt(process.env.SESSION_TTL_SECONDS || '3600', 10); // 1 hour
-const SESSION_ROTATE_MS = parseInt(process.env.SESSION_ROTATE_MS || String(60 * 60 * 1000), 10);
-const MONGO_DB = process.env.MONGO_DB_NAME || process.env.VITE_MONGO_DB_NAME || 'HearSay';
-const SESSIONS_COLLECTION = process.env.SESSIONS_COLLECTION || 'expressSessions';
-const BCRYPT_ROUNDS = parseInt(process.env.BCRYPT_ROUNDS || '12', 10);
+// const SESSION_NAME = process.env.SESSION_NAME || 'hsid';
+// const SESSION_SECRET = process.env.SESSION_SECRET || 'dev-insecure-secret';
+// const SESSION_TTL_SECONDS = parseInt(process.env.SESSION_TTL_SECONDS || '3600', 10); // 1 hour
+// const SESSION_ROTATE_MS = parseInt(process.env.SESSION_ROTATE_MS || String(60 * 60 * 1000), 10);
+// const MONGO_DB = process.env.MONGO_DB_NAME || process.env.VITE_MONGO_DB_NAME || 'HearSay';
+// const SESSIONS_COLLECTION = process.env.SESSIONS_COLLECTION || 'expressSessions';
+// const BCRYPT_ROUNDS = parseInt(process.env.BCRYPT_ROUNDS || '12', 10);
 
 
 // Trust proxy when behind one (must be set before CORS and session middleware)

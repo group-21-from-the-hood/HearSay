@@ -48,11 +48,7 @@ let db;
 export async function connectMongo(uri = MONGO_URI, dbName = MONGO_DB_NAME) {
   if (db) return db;
   const opts = { maxPoolSize: 10 };
-  // If credentials are not baked into the URI, provide them via options
-  if (!/\/\S*@/.test(uri) && MONGO_USER) {
-    opts.auth = { username: MONGO_USER, password: MONGO_PASS || '' };
-    if (MONGO_AUTH_SOURCE) opts.authSource = MONGO_AUTH_SOURCE;
-  }
+  // Credentials should already be in the URI; driver will use them automatically
   client = new MongoClient(uri, opts);
   await client.connect();
   db = client.db(dbName);

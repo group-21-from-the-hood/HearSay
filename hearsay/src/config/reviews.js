@@ -47,26 +47,6 @@ export async function getMyReview(type, oid) {
 }
 
 export async function deleteMyReview(type, oid) {
-  const res = await fetch(`/api/reviews/my?type=${encodeURIComponent(type)}&oid=${encodeURIComponent(oid)}`, {
-    method: 'DELETE',
-    credentials: 'include',
-  });
-  
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    throw new Error(data.error || 'delete_failed');
-  }
-  
-  const data = await res.json();
-  if (!data.ok) {
-    throw new Error(data.error || 'delete_failed');
-  }
-  
-  // Return true if deleted successfully, throw error if not found
-  if (data.deleted === false) {
-    throw new Error('review_not_found');
-  }
-  
   const path = `/reviews/my?type=${encodeURIComponent(type)}&oid=${encodeURIComponent(oid)}`;
   const data = await apiJson('DELETE', path);
   return Boolean(data.deleted);
