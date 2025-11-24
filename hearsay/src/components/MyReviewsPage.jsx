@@ -86,8 +86,18 @@ const MyReviewsPage = () => {
           return review;
         })
       );
-      
-      setReviews(prev => [...prev, ...enrichedItems]);
+      // Deduplicate by id when merging (prevents duplicate key warnings)
+      setReviews(prev => {
+        const combined = [...prev, ...enrichedItems];
+        const seen = new Set();
+        return combined.filter(r => {
+          const id = r.id;
+          if (!id) return true; // keep items lacking id
+          if (seen.has(id)) return false;
+          seen.add(id);
+          return true;
+        });
+      });
       setNextOffset(typeof no === 'number' ? no : null);
     } catch (e) {
       if (String(e.message).includes('unauthorized')) setAuthError(true);
@@ -218,42 +228,7 @@ const MyReviewsPage = () => {
     }
   };
 
-  useEffect(() => {
-    const fetchReviews = async () => {
-      try {
-        const response = await fetch('/api/reviews/my/list', { credentials: 'include' });
-        const data = await response.json();
-        if (data.ok) {
-          const enrichedReviews = await Promise.all(
-            data.items.map(async (review) => {
-              if (review.type === 'album' && review.oid) {
-                const albumResponse = await fetch(`/api/albums/${review.oid}`, { credentials: 'include' });
-                if (albumResponse.ok) {
-                  const albumData = await albumResponse.json();
-                  if (albumData.ok && albumData.data) {
-                    return {
-                      ...review,
-                      media: {
-                        title: albumData.data.name || 'Unknown Album',
-                        coverArt: albumData.data.image || '',
-                        route: `/album/${review.oid}`, // Add route for navigation
-                      },
-                    };
-                  }
-                }
-              }
-              return review;
-            })
-          );
-          setReviews(enrichedReviews);
-        }
-      } catch (error) {
-        console.error('Failed to fetch reviews:', error);
-      }
-    };
-
-    fetchReviews();
-  }, []);
+  // Removed secondary fetchReviews effect to avoid duplicating review entries.
 
   const toggleExpandReview = (reviewId) => {
     setExpandedReviewId((prevId) => (prevId === reviewId ? null : reviewId));
