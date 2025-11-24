@@ -9,6 +9,7 @@ dotenv.config({ path: envFile });
 
 console.log('[CONFIG] Loaded env file:', envFile);
 
+import bcrypt from 'bcryptjs';
 import express from 'express';
 import cors from 'cors';
 import session from 'express-session';
@@ -54,6 +55,17 @@ const SESSION_ROTATE_MS_NUM = parseInt(SESSION_ROTATE_MS, 10) || 3600000;
 
 const app = express();
 const PORT = process.env.PORT || 5174;
+
+// Frontend origin for CORS (cookies), session cookie name/secret and timings
+//const ORIGIN = process.env.FRONTEND_ORIGIN || 'http://localhost:5173';
+const SESSION_NAME = process.env.SESSION_NAME || 'hsid';
+const SESSION_SECRET = process.env.SESSION_SECRET || 'dev-insecure-secret';
+const SESSION_TTL_SECONDS = parseInt(process.env.SESSION_TTL_SECONDS || '3600', 10); // 1 hour
+const SESSION_ROTATE_MS = parseInt(process.env.SESSION_ROTATE_MS || String(60 * 60 * 1000), 10);
+const MONGO_DB = process.env.MONGO_DB_NAME || process.env.VITE_MONGO_DB_NAME || 'HearSay';
+const SESSIONS_COLLECTION = process.env.SESSIONS_COLLECTION || 'expressSessions';
+const BCRYPT_ROUNDS = parseInt(process.env.BCRYPT_ROUNDS || '12', 10);
+
 
 // Trust proxy when behind one (must be set before CORS and session middleware)
 app.set('trust proxy', 1);
@@ -167,6 +179,146 @@ app.use((req, res, next) => {
 // Health check
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
+// ---------------- Local Auth (Email + Password) ----------------
+// Helper: normalize email
+function normalizeEmail(e) {
+  return String(e || '').trim().toLowerCase();
+}
+
+// Helper: basic password validation (min length)
+function validatePassword(pw) {
+  if (typeof pw !== 'string') return false;
+  const trimmed = pw.trim();
+  return trimmed.length >= 6;
+}
+
+// Signup or link local password (if Google-only user adds a password)
+app.post('/api/auth/local/signup', async (req, res) => {
+  try {
+    const { email, password } = req.body || {};
+    const em = normalizeEmail(email);
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) return res.status(400).json({ ok: false, error: 'invalid_email' });
+    if (!validatePassword(password)) return res.status(400).json({ ok: false, error: 'weak_password', minLength: 6 });
+
+    const usersCol = db.Users.collection();
+    const existing = await usersCol.findOne({ email: em });
+    const hash = await bcrypt.hash(String(password), BCRYPT_ROUNDS);
+    const nowIso = new Date().toISOString();
+
+    if (!existing) {
+      const newDoc = {
+        email: em,
+        passwordHash: hash,
+        firstname: '',
+        lastname: '',
+        accounts: [{ kind: 'Local', uid: em }],
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      };
+      const ins = await usersCol.insertOne(newDoc);
+      const userDoc = { ...newDoc, _id: ins.insertedId };
+      req.session.user = {
+        oid: userDoc._id.toString(),
+        provider: 'local',
+        email: userDoc.email,
+        firstname: userDoc.firstname,
+        lastname: userDoc.lastname,
+      };
+      await new Promise((resolve, reject) => req.session.save(err => err ? reject(err) : resolve()));
+      return res.json({ ok: true, user: req.session.user, linked: false, created: true });
+    }
+
+    // Existing user: if already has local password, block; else link
+    if (existing.passwordHash) {
+      return res.status(409).json({ ok: false, error: 'email_in_use' });
+    }
+
+    await usersCol.updateOne(
+      { _id: existing._id },
+      {
+        $set: { passwordHash: hash, updatedAt: nowIso },
+        $addToSet: { accounts: { kind: 'Local', uid: em } },
+      }
+    );
+    const linkedDoc = await usersCol.findOne({ _id: existing._id });
+    req.session.user = {
+      oid: linkedDoc._id.toString(),
+      provider: 'local',
+      email: linkedDoc.email,
+      firstname: linkedDoc.firstname || '',
+      lastname: linkedDoc.lastname || '',
+    };
+    await new Promise((resolve, reject) => req.session.save(err => err ? reject(err) : resolve()));
+    return res.json({ ok: true, user: req.session.user, linked: true, created: false });
+  } catch (e) {
+    console.error('[AuthLocal] signup error', e);
+    return res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
+// Local login
+app.post('/api/auth/local/login', async (req, res) => {
+  try {
+    const { email, password } = req.body || {};
+    const em = normalizeEmail(email);
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) return res.status(400).json({ ok: false, error: 'invalid_email' });
+    const usersCol = db.Users.collection();
+    const user = await usersCol.findOne({ email: em });
+    if (!user || !user.passwordHash) return res.status(404).json({ ok: false, error: 'no_local_account' });
+    const match = await bcrypt.compare(String(password || ''), user.passwordHash);
+    if (!match) return res.status(401).json({ ok: false, error: 'invalid_credentials' });
+    req.session.user = {
+      oid: user._id.toString(),
+      provider: 'local',
+      email: user.email,
+      firstname: user.firstname || '',
+      lastname: user.lastname || '',
+    };
+    await new Promise((resolve, reject) => req.session.save(err => err ? reject(err) : resolve()));
+    return res.json({ ok: true, user: req.session.user });
+  } catch (e) {
+    console.error('[AuthLocal] login error', e);
+    return res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
+// Set or change password for logged-in user (linking when Google-only)
+app.post('/api/auth/local/set-password', async (req, res) => {
+  try {
+    const userOid = req.session?.user?.oid;
+    if (!userOid) return res.status(401).json({ ok: false, error: 'unauthorized' });
+    const { password } = req.body || {};
+    if (!validatePassword(password)) return res.status(400).json({ ok: false, error: 'weak_password', minLength: 6 });
+    const usersCol = db.Users.collection();
+    const userDoc = await usersCol.findOne({ _id: new ObjectId(userOid) });
+    if (!userDoc) return res.status(404).json({ ok: false, error: 'not_found' });
+    const hash = await bcrypt.hash(String(password), BCRYPT_ROUNDS);
+    await usersCol.updateOne(
+      { _id: userDoc._id },
+      {
+        $set: { passwordHash: hash, updatedAt: new Date().toISOString() },
+        $addToSet: { accounts: { kind: 'Local', uid: userDoc.email } },
+      }
+    );
+    return res.json({ ok: true, linked: true });
+  } catch (e) {
+    console.error('[AuthLocal] set-password error', e);
+    return res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
+// Debug: list registered routes (helps verify local auth endpoints mounted)
+app.get('/api/debug/routes', (req, res) => {
+  const routes = [];
+  app._router.stack.forEach(layer => {
+    if (layer.route) {
+      const methods = Object.keys(layer.route.methods).filter(m => layer.route.methods[m]);
+      routes.push({ path: layer.route.path, methods });
+    }
+  });
+  return res.json({ ok: true, routes });
+});
+
 // Session info endpoint: ensures a session exists and returns basic details
 app.get('/api/session', (req, res) => {
   req.session.visits = (req.session.visits || 0) + 1;
@@ -275,6 +427,14 @@ app.post('/api/auth/google/exchange', async (req, res) => {
         // In rare cases, attempt a direct read using the same filter
         userDoc = await usersCol.findOne(filter);
       }
+      // If user has a local passwordHash but Local account not present, ensure it
+      if (userDoc?.passwordHash) {
+        const hasLocal = Array.isArray(userDoc.accounts) && userDoc.accounts.some(a => a?.kind === 'Local');
+        if (!hasLocal && userDoc.email) {
+          await usersCol.updateOne({ _id: userDoc._id }, { $addToSet: { accounts: { kind: 'Local', uid: userDoc.email } } });
+          userDoc = await usersCol.findOne({ _id: userDoc._id });
+        }
+      }
     } catch (e) {
       // If uniqueness constraints triggered during a race, read the existing doc
       if (e && (e.code === 11000 || /duplicate key/i.test(String(e)))) {
@@ -367,6 +527,47 @@ app.get('/api/profile', async (req, res) => {
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log('Backend listening on', PORT);
+// Update profile (firstname, lastname). Keeps email immutable for now.
+app.post('/api/profile/update', async (req, res) => {
+  try {
+    const oid = req.session?.user?.oid;
+    if (!oid) return res.status(401).json({ ok: false, error: 'unauthorized' });
+    const { firstname, lastname } = req.body || {};
+    const fn = typeof firstname === 'string' ? firstname.trim() : undefined;
+    const ln = typeof lastname === 'string' ? lastname.trim() : undefined;
+    const tooLong = (s) => s && s.length > 100;
+    if (tooLong(fn) || tooLong(ln)) return res.status(400).json({ ok: false, error: 'field_too_long', max: 100 });
+    const users = db.Users.collection();
+    const updates = { updatedAt: new Date().toISOString() };
+    if (fn !== undefined) updates.firstname = fn;
+    if (ln !== undefined) updates.lastname = ln;
+    await users.updateOne({ _id: new ObjectId(oid) }, { $set: updates });
+    const doc = await users.findOne(
+      { _id: new ObjectId(oid) },
+      { projection: { email: 1, firstname: 1, lastname: 1, accounts: 1 } }
+    );
+    if (!doc) return res.status(404).json({ ok: false, error: 'not_found' });
+    // Update session user for immediate reflection
+    if (req.session?.user) {
+      if (fn !== undefined) req.session.user.firstname = fn;
+      if (ln !== undefined) req.session.user.lastname = ln;
+      await new Promise((resolve, reject) => req.session.save(err => err ? reject(err) : resolve()));
+    }
+    const safeAccounts = Array.isArray(doc.accounts)
+      ? doc.accounts.map(a => ({ kind: a?.kind })).filter(a => a.kind)
+      : [];
+    return res.json({ ok: true, profile: {
+      _id: doc._id,
+      email: doc.email || '',
+      firstname: doc.firstname || '',
+      lastname: doc.lastname || '',
+      accounts: safeAccounts,
+    }});
+  } catch (e) {
+    console.error('[SERVER] /api/profile/update error', e);
+    return res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
 });
 
 // DB connectivity test: attempts to connect and ping the database
@@ -631,15 +832,30 @@ app.post('/api/reviews/upsert', async (req, res) => {
       likes: new Int32(0),
       dislikes: new Int32(0),
       comments: [],
-      type: String(type),
+      // Root-level type represents document kind; keep item.type for media kind
+      type: 'review',
+      itemType: String(type),
     };
     if (normText === undefined) setOnInsertFields.text = '';
     if (normRating === undefined) setOnInsertFields.rating = new Int32(0);
     const update = { $set: setFields, $setOnInsert: setOnInsertFields };
 
+    // Debug instrumentation: log intent prior to upsert
+    try {
+      console.log('[Reviews][Upsert][DEBUG] filter=', filter,
+        'set=', setFields,
+        'onInsert=', setOnInsertFields);
+    } catch {}
+
     const result = await reviews.findOneAndUpdate(filter, update, { upsert: true, returnDocument: 'after' });
     const doc = result.value || (await reviews.findOne(filter));
 
+    try {
+      console.log('[Reviews][Upsert][DEBUG] upsert doc id=', doc?._id?.toString?.() || null,
+        'rating(raw)=', doc?.rating,
+        'text.len=', typeof doc?.text === 'string' ? doc.text.length : null);
+      console.log('[Reviews][Upsert][DEBUG] result.lastErrorObject=', result?.lastErrorObject || null);
+    } catch {}
     // Ensure user's profile records this review's ObjectId
     try {
       const usersCol = db.Users.collection();
@@ -700,22 +916,31 @@ app.post('/api/reviews/upsert', async (req, res) => {
           );
         } else if (type === 'album') {
           const albumsCol = db.Albums.collection();
-          const albumExisting = await albumsCol.findOne({ spotifyAlbumId: oid });
-          if (!albumExisting) {
-            try {
-              const ar = await spotify.getAlbum(oid);
-              const al = ar?.data;
-              if (al && al.id) {
-                const artist0 = Array.isArray(al.artists) && al.artists[0] ? al.artists[0] : {};
-                // Resolve artist _id for internal reference; seed artist if missing
-                let albumArtistDoc = artist0.id ? await db.Artists.collection().findOne({ spotifyArtistId: artist0.id }) : null;
-                if (!albumArtistDoc && artist0.id) {
-                  try {
-                    const aRes = await spotify.getArtist(artist0.id);
-                    const a = aRes?.data;
-                    if (a && a.id) {
-                      const nowIsoArtist = new Date().toISOString();
-                      const aDoc = {
+          // Atomic creation + normalization + review reference insertion
+          try {
+            const existingAlbum = await albumsCol.findOne({ spotifyAlbumId: oid });
+            let spotifyAlbumData = null;
+            if (!existingAlbum) {
+              try {
+                const ar = await spotify.getAlbum(oid);
+                spotifyAlbumData = ar?.data || null;
+              } catch (eAlbFetch) {
+                console.warn('[Albums] Spotify fetch failed for', oid, eAlbFetch?.message || eAlbFetch);
+              }
+            }
+            // Ensure artist doc (from album data if available)
+            let artistObjRaw = spotifyAlbumData && Array.isArray(spotifyAlbumData.artists) && spotifyAlbumData.artists[0] ? spotifyAlbumData.artists[0] : {};
+            let albumArtistDoc = artistObjRaw.id ? await db.Artists.collection().findOne({ spotifyArtistId: artistObjRaw.id }) : null;
+            if (!albumArtistDoc && artistObjRaw.id) {
+              try {
+                const aRes = await spotify.getArtist(artistObjRaw.id);
+                const a = aRes?.data;
+                if (a && a.id) {
+                  const nowIsoArtist = new Date().toISOString();
+                  await db.Artists.collection().updateOne(
+                    { spotifyArtistId: a.id },
+                    {
+                      $setOnInsert: {
                         name: a.name || '',
                         image: a.images?.[0]?.url || '',
                         followers: Number.isInteger(a.followers?.total) ? a.followers.total : 0,
@@ -731,45 +956,73 @@ app.post('/api/reviews/upsert', async (req, res) => {
                         reviews: [],
                         albums: [],
                         songs: [],
-                      };
-                      await db.Artists.collection().updateOne(
-                        { spotifyArtistId: a.id },
-                        { $setOnInsert: aDoc },
-                        { upsert: true }
-                      );
-                      albumArtistDoc = await db.Artists.collection().findOne({ spotifyArtistId: a.id });
-                    }
-                  } catch {}
+                      },
+                    },
+                    { upsert: true }
+                  );
+                  albumArtistDoc = await db.Artists.collection().findOne({ spotifyArtistId: a.id });
                 }
-                const albumArtistOidRef = albumArtistDoc?._id?.toString?.() || '';
-                const seed = {
-                  name: al.name || '',
-                  spotifyAlbumId: al.id,
-                  artist: { name: artist0.name || albumArtistDoc?.name || '', oid: albumArtistOidRef },
-                  genre: Array.isArray(al.genres) ? al.genres : [],
-                  likes: '0',
-                  dislikes: '0',
-                  rating: '0',
-                  releaseDate: al.release_date || '',
-                  image: al.images?.[0]?.url || '',
-                  songs: [],
-                  reviews: [],
-                };
-                await albumsCol.updateOne(
-                  { spotifyAlbumId: al.id },
-                  { $setOnInsert: seed },
-                  { upsert: true }
-                );
+              } catch (eEnsureArtist) {
+                console.warn('[Albums] ensure artist failed', eEnsureArtist?.message || eEnsureArtist);
               }
-            } catch (eAlb) {
-              console.warn('[Albums] ensure album doc failed', eAlb?.message || eAlb);
             }
+            const artistIdRef = albumArtistDoc?._id?.toString?.() || '';
+            // Build normalized fields (both for existing or new)
+            const normalized = {};
+            if (existingAlbum) {
+              normalized.name = typeof existingAlbum.name === 'string' ? existingAlbum.name : (spotifyAlbumData?.name || '');
+              normalized.spotifyAlbumId = typeof existingAlbum.spotifyAlbumId === 'string' ? existingAlbum.spotifyAlbumId : oid;
+              const artistObj = existingAlbum.artist && typeof existingAlbum.artist === 'object' ? existingAlbum.artist : {};
+              normalized.artist = {
+                name: typeof artistObj.name === 'string' ? artistObj.name : (artistObjRaw.name || albumArtistDoc?.name || ''),
+                oid: typeof artistObj.oid === 'string' ? artistObj.oid : artistIdRef,
+              };
+              normalized.genre = Array.isArray(existingAlbum.genre) ? existingAlbum.genre : (Array.isArray(spotifyAlbumData?.genres) ? spotifyAlbumData.genres : []);
+              normalized.likes = typeof existingAlbum.likes === 'string' ? existingAlbum.likes : '0';
+              normalized.dislikes = typeof existingAlbum.dislikes === 'string' ? existingAlbum.dislikes : '0';
+              normalized.rating = typeof existingAlbum.rating === 'string' ? existingAlbum.rating : '0';
+              normalized.releaseDate = typeof existingAlbum.releaseDate === 'string' ? existingAlbum.releaseDate : (spotifyAlbumData?.release_date || '');
+              normalized.image = typeof existingAlbum.image === 'string' ? existingAlbum.image : (spotifyAlbumData?.images?.[0]?.url || '');
+              // Do not set createdAt here; only update updatedAt
+              normalized.updatedAt = nowIso;
+              const songsArr = Array.isArray(existingAlbum.songs) ? existingAlbum.songs : [];
+              normalized.songs = songsArr.filter(s => s && typeof s === 'object').map(s => ({ name: typeof s.name === 'string' ? s.name : '', oid: typeof s.oid === 'string' ? s.oid : '' })).filter(s => s.name && s.oid);
+              // For existing albums, do NOT overwrite createdAt; only refresh updatedAt
+              if (typeof existingAlbum.createdAt === 'string') {
+                // leave createdAt untouched by excluding it from $set
+              }
+              normalized.updatedAt = nowIso;
+            } else {
+              normalized.name = spotifyAlbumData?.name || '';
+              normalized.spotifyAlbumId = oid;
+              normalized.artist = { name: artistObjRaw.name || albumArtistDoc?.name || '', oid: artistIdRef };
+              normalized.genre = Array.isArray(spotifyAlbumData?.genres) ? spotifyAlbumData.genres : [];
+              normalized.likes = '0';
+              normalized.dislikes = '0';
+              normalized.rating = '0';
+              normalized.releaseDate = spotifyAlbumData?.release_date || '';
+              normalized.image = spotifyAlbumData?.images?.[0]?.url || '';
+              normalized.songs = [];
+              // Exclude reviews & createdAt from $set to avoid conflicts with $addToSet/$setOnInsert
+              normalized.updatedAt = nowIso;
+            }
+            // Perform atomic upsert with review reference (avoid duplicate field conflicts)
+            const albumUpdate = {
+              $set: normalized, // no reviews/createdAt here to avoid path conflicts
+              $setOnInsert: { createdAt: nowIso },
+              $addToSet: { reviews: { review_oid: reviewIdStr, user_oid: userOid } },
+            };
+            const albumResult = await albumsCol.updateOne(
+              { spotifyAlbumId: oid },
+              albumUpdate,
+              { upsert: true }
+            );
+            try {
+              console.log('[Albums][UpsertReviewRef][DEBUG] oid=', oid, 'matched=', albumResult.matchedCount, 'modified=', albumResult.modifiedCount, 'upserted=', albumResult.upsertedId);
+            } catch {}
+          } catch (albumReviewRefErr) {
+            console.warn('[Albums] failed album atomic upsert (validation?)', albumReviewRefErr?.message || albumReviewRefErr);
           }
-          // Add reference to reviews array using schema shape { review_oid, user_oid }
-          await albumsCol.updateOne(
-            { spotifyAlbumId: oid },
-            { $addToSet: { reviews: { review_oid: reviewIdStr, user_oid: userOid } } },
-          );
           // Ensure Artist.albums[] contains this album { name, oid }
           try {
             const albumDocForRef = await albumsCol.findOne(
@@ -1544,7 +1797,11 @@ app.get('/api/reviews/my', async (req, res) => {
     if (!allowed.has(String(type))) return res.status(400).json({ ok: false, error: 'invalid_type' });
     if (!oid || typeof oid !== 'string') return res.status(400).json({ ok: false, error: 'invalid_oid' });
     const reviews = db.Reviews.collection();
-    const doc = await reviews.findOne({ 'user.oid': userOid, 'item.type': type, 'item.oid': oid });
+    const query = { 'user.oid': userOid, 'item.type': type, 'item.oid': oid };
+    const doc = await reviews.findOne(query);
+    try {
+      console.log('[Reviews][my][DEBUG] query=', query, 'found=', !!doc, 'id=', doc?._id?.toString?.() || null);
+    } catch {}
     if (doc && typeof doc.rating === 'number') doc.rating = doc.rating / 2;
     return res.json({ ok: true, review: doc || null });
   } catch (e) {
@@ -1823,6 +2080,39 @@ app.get('/api/reviews/recent', async (req, res) => {
     return res.json({ ok: true, items, nextOffset });
   } catch (e) {
     console.error('[Reviews] recent reviews error', e);
+    return res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
+// Debug: fetch raw review doc for current user & item (no media mutations)
+app.get('/api/reviews/debug/find', async (req, res) => {
+  try {
+    const userOid = req.session?.user?.oid;
+    if (!userOid) return res.status(401).json({ ok: false, error: 'unauthorized' });
+    const { type, oid } = req.query || {};
+    const allowed = new Set(['song', 'album', 'artist']);
+    if (!allowed.has(String(type))) return res.status(400).json({ ok: false, error: 'invalid_type' });
+    if (!oid || typeof oid !== 'string') return res.status(400).json({ ok: false, error: 'invalid_oid' });
+    const reviewsCol = db.Reviews.collection();
+    const doc = await reviewsCol.findOne({ 'user.oid': userOid, 'item.type': type, 'item.oid': oid });
+    return res.json({ ok: true, found: !!doc, doc });
+  } catch (e) {
+    console.error('[Reviews][debug/find] error', e);
+    return res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
+// Debug: list all reviews for current user (raw docs)
+app.get('/api/reviews/debug/list', async (req, res) => {
+  try {
+    const userOid = req.session?.user?.oid;
+    if (!userOid) return res.status(401).json({ ok: false, error: 'unauthorized' });
+    const reviewsCol = db.Reviews.collection();
+    const cursor = reviewsCol.find({ 'user.oid': userOid }).project({ text: 1, rating: 1, item: 1, type: 1, itemType: 1, createdAt: 1, updatedAt: 1 });
+    const docs = await cursor.toArray();
+    return res.json({ ok: true, count: docs.length, docs });
+  } catch (e) {
+    console.error('[Reviews][debug/list] error', e);
     return res.status(500).json({ ok: false, error: 'server_error' });
   }
 });

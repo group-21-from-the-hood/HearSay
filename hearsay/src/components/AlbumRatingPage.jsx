@@ -202,7 +202,15 @@ export default function AlbumRatingPage() {
       alert(`Review exceeds ${ALBUM_REVIEW_WORD_LIMIT} word limit. Please shorten your review.`);
     } else {
       try {
-        await upsertReview({ type: 'album', oid: albumId, text: sanitizedReview, rating: albumRating ? sanitizeRating(albumRating) : undefined });
+        const saved = await upsertReview({ type: 'album', oid: albumId, text: sanitizedReview, rating: albumRating ? sanitizeRating(albumRating) : undefined });
+        // Immediate refetch to ensure state matches server (and scaled rating if added later)
+        try {
+          const latest = await getMyReview('album', albumId);
+          if (latest) {
+            if (typeof latest.text === 'string') setReview(latest.text);
+            if (typeof latest.rating === 'number') setAlbumRating(latest.rating);
+          }
+        } catch {}
         setIsEditingReview(false);
         setHasSavedReview(true);
         success('Review saved');
@@ -225,7 +233,12 @@ export default function AlbumRatingPage() {
       return;
     }
     try {
-      await upsertReview({ type: 'album', oid: albumId, rating: sanitized });
+      const saved = await upsertReview({ type: 'album', oid: albumId, rating: sanitized });
+      // Refetch to capture any server-side normalization
+      try {
+        const latest = await getMyReview('album', albumId);
+        if (latest && typeof latest.rating === 'number') setAlbumRating(latest.rating);
+      } catch {}
       setIsEditingRating(false);
       setHasSavedRating(true);
       success('Rating saved');
