@@ -13,6 +13,8 @@ import MyReviewsPage from './components/MyReviewsPage';
 import ProfilePage from './components/ProfilePage';
 import RandomPage from './components/RandomPage';
 import ProtectedRoute from './components/ProtectedRoute';
+import RecentReviewsPage from './components/RecentReviewsPage';
+import ReviewPage from './components/ReviewPage';
 import './App.css';
 
 function App() {
@@ -32,6 +34,8 @@ function App() {
                 <Route path="/album/:albumId" element={<AlbumRatingPage />} />
                 <Route path="/song/:songId" element={<SongRatingPage />} />
                 <Route path="/my-reviews" element={<ProtectedRoute><MyReviewsPage /></ProtectedRoute>} />
+                <Route path="/recent-reviews" element={<RecentReviewsPage />} />
+                <Route path="/review/:reviewId" element={<ReviewPage />} />
                 <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
                 <Route path="/random" element={<RandomPage />} />
               </Routes>

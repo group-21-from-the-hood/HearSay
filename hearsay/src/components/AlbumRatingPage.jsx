@@ -49,14 +49,25 @@ export default function AlbumRatingPage() {
               albumData = {
                 id: a.spotifyAlbumId || albumId,
                 title: a.name || '',
-                artist: a.artist?.oid || '', // we only stored oid; display later after Spotify fallback
+                artist: a.artist?.oid || '',
                 coverArt: a.image || '',
                 releaseDate: a.releaseDate || '',
                 totalTracks: Array.isArray(a.songs) ? a.songs.length : undefined,
                 label: '',
                 popularity: 0,
-                spotifyUrl: ''
+                spotifyUrl: '',
               };
+
+              // Populate tracklist from saved album data
+              const savedTracks = a.songs || [];
+              setTracks(
+                savedTracks.map((song, index) => ({
+                  id: song.oid,
+                  name: song.name,
+                  duration: 0, // Duration not stored in DB, fetch from Spotify if needed
+                  trackNumber: index + 1, // Use index + 1 for track numbers
+                }))
+              );
             }
           }
         } catch {}
@@ -73,21 +84,23 @@ export default function AlbumRatingPage() {
             totalTracks: albumResponse.total_tracks,
             label: albumResponse.label,
             popularity: albumResponse.popularity,
-            spotifyUrl: albumResponse.external_urls?.spotify
+            spotifyUrl: albumResponse.external_urls?.spotify,
           };
+
+          // Populate tracklist from Spotify data
+          const trackItems = albumResponse.tracks?.items || [];
+          setTracks(
+            trackItems.map((track) => ({
+              id: track.id,
+              name: track.name,
+              duration: track.duration_ms,
+              trackNumber: track.track_number, // Use Spotify's track number
+            }))
+          );
         }
 
         setAlbum(albumData);
         setAlbumDetails(albumData);
-
-        const trackItems = (albumResponse?.tracks?.items) || [];
-        setTracks(trackItems.map(track => ({
-          id: track.id,
-          name: track.name,
-          duration: track.duration_ms,
-          trackNumber: track.track_number
-        })));
-
       } catch (error) {
         console.error('Error fetching album data:', error);
       } finally {
@@ -135,14 +148,42 @@ export default function AlbumRatingPage() {
     return `${minutes}:${seconds.padStart(2, '0')}`;
   };
 
-  const handleSubmitRatings = () => {
-    // Sanitize all ratings before submission
-    const sanitizedRatings = Object.entries(trackRatings).reduce((acc, [trackId, rating]) => {
-      acc[trackId] = sanitizeRating(rating);
-      return acc;
-    }, {});
-    
-    console.log('Album ratings:', sanitizedRatings);
+  const handleSubmitRatings = async () => {
+    try {
+      // Ensure all tracks have a rating
+      const trackIds = tracks.map(track => track.id);
+      const missingRatings = trackIds.filter(trackId => !trackRatings[trackId]);
+      if (missingRatings.length > 0) {
+        alert('Please rate all tracks before submitting.');
+        return;
+      }
+
+      // Sanitize all ratings before submission
+      const sanitizedRatings = Object.entries(trackRatings).reduce((acc, [trackId, rating]) => {
+        acc[trackId] = sanitizeRating(rating);
+        return acc;
+      }, {});
+
+      // Calculate album rating as the average of track ratings
+      const averageRating = Object.values(sanitizedRatings).reduce((sum, rating) => sum + rating, 0) / trackIds.length;
+      setAlbumRating(averageRating);
+
+      // Submit album review with track ratings
+      await upsertReview({
+        type: 'album',
+        oid: albumId,
+        rating: sanitizeRating(averageRating),
+        trackRatings: sanitizedRatings, // Include individual track ratings
+      });
+
+      // Show success message and reset editing state
+      success('Album rating and track ratings submitted successfully!');
+      setIsEditingRating(false);
+      setHasSavedRating(true);
+    } catch (error) {
+      console.error('Error submitting album rating:', error);
+      alert('Failed to submit album rating. Please try again.');
+    }
   };
 
   const handleSubmitReview = async () => {
@@ -209,24 +250,38 @@ export default function AlbumRatingPage() {
 
   const handleDeleteAlbumReview = async () => {
     if (!albumId) return;
+    
+    if (!confirm('Are you sure you want to delete this review? This action cannot be undone.')) {
+      return;
+    }
+    
     try {
-      const deleted = await deleteMyReview('album', albumId);
-      if (deleted) {
+      await deleteMyReview('album', albumId);
+      
+      // Successfully deleted
+      setReview('');
+      setAlbumRating(0);
+      setIsEditingReview(false);
+      setIsEditingRating(false);
+      setHasSavedReview(false);
+      setHasSavedRating(false);
+      alert('Your review was deleted.');
+    } catch (e) {
+      const errorMsg = String(e.message || e);
+      if (errorMsg.includes('unauthorized')) {
+        alert('Please sign in to delete your review.');
+      } else if (errorMsg.includes('review_not_found')) {
+        // Review was already deleted - still clear the UI
         setReview('');
         setAlbumRating(0);
-        alert('Your review was deleted.');
         setIsEditingReview(false);
         setIsEditingRating(false);
         setHasSavedReview(false);
         setHasSavedRating(false);
-      } else {
-        alert('No existing review to delete.');
-      }
-    } catch (e) {
-      if (String(e.message).includes('unauthorized')) {
-        alert('Please sign in to delete your review.');
+        alert('Review was already deleted.');
       } else {
         alert('Failed to delete review. Please try again.');
+        console.error('Delete error:', e);
       }
     }
   };

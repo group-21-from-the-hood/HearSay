@@ -143,24 +143,38 @@ export default function SongRatingPage() {
 
   const handleDeleteReview = async () => {
     if (!songId) return;
+    
+    if (!confirm('Are you sure you want to delete this review? This action cannot be undone.')) {
+      return;
+    }
+    
     try {
-      const deleted = await deleteMyReview('song', songId);
-      if (deleted) {
+      await deleteMyReview('song', songId);
+      
+      // Successfully deleted
+      setReview('');
+      setRating(0);
+      setIsEditingReview(false);
+      setIsEditingRating(false);
+      setHasSavedReview(false);
+      setHasSavedRating(false);
+      alert('Your review was deleted.');
+    } catch (e) {
+      const errorMsg = String(e.message || e);
+      if (errorMsg.includes('unauthorized')) {
+        alert('Please sign in to delete your review.');
+      } else if (errorMsg.includes('review_not_found')) {
+        // Review was already deleted - still clear the UI
         setReview('');
         setRating(0);
-        alert('Your review was deleted.');
         setIsEditingReview(false);
         setIsEditingRating(false);
         setHasSavedReview(false);
         setHasSavedRating(false);
-      } else {
-        alert('No existing review to delete.');
-      }
-    } catch (e) {
-      if (String(e.message).includes('unauthorized')) {
-        alert('Please sign in to delete your review.');
+        alert('Review was already deleted.');
       } else {
         alert('Failed to delete review. Please try again.');
+        console.error('Delete error:', e);
       }
     }
   };

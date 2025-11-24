@@ -38,17 +38,27 @@ export async function getMyReview(type, oid) {
 }
 
 export async function deleteMyReview(type, oid) {
-  const url = new URL('/api/reviews/my', window.location.origin);
-  url.searchParams.set('type', type);
-  url.searchParams.set('oid', oid);
-  const res = await fetch(url.toString(), { method: 'DELETE', credentials: 'include' });
-  const data = await res.json().catch(() => null);
-  if (!res.ok || !data?.ok) {
-    if (res.status === 401) throw new Error('unauthorized');
-    const message = data?.error ? JSON.stringify(data.error) : `HTTP ${res.status}`;
-    throw new Error(`Reviews request failed: ${message}`);
+  const res = await fetch(`/api/reviews/my?type=${encodeURIComponent(type)}&oid=${encodeURIComponent(oid)}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  });
+  
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || 'delete_failed');
   }
-  return Boolean(data.deleted);
+  
+  const data = await res.json();
+  if (!data.ok) {
+    throw new Error(data.error || 'delete_failed');
+  }
+  
+  // Return true if deleted successfully, throw error if not found
+  if (data.deleted === false) {
+    throw new Error('review_not_found');
+  }
+  
+  return true;
 }
 
 export async function listMyReviews({ limit = 5, offset = 0 } = {}) {
