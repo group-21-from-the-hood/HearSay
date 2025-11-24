@@ -55,6 +55,8 @@ const SESSION_ROTATE_MS_NUM = parseInt(SESSION_ROTATE_MS, 10) || 3600000;
 
 const app = express();
 const PORT = process.env.PORT || 5174;
+// Bcrypt cost factor (default 12) - was previously commented out causing ReferenceError
+const BCRYPT_ROUNDS = parseInt(process.env.BCRYPT_ROUNDS || '12', 10) || 12;
 
 // Frontend origin for CORS (cookies), session cookie name/secret and timings
 //const ORIGIN = process.env.FRONTEND_ORIGIN || 'http://localhost:5173';
