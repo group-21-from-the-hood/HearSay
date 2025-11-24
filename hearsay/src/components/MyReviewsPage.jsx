@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { listMyReviews, upsertReview } from '../config/reviews';
+import { listMyReviews, upsertReview, deleteMyReview } from '../config/reviews';
 import HeadphoneRating from './HeadphoneRating';
 import { sanitizeInput, sanitizeRating } from '../utils/sanitize';
 
-export default function MyReviewsPage() {
+const MyReviewsPage = () => {
   const [reviews, setReviews] = useState([]);
   const [nextOffset, setNextOffset] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -14,13 +14,80 @@ export default function MyReviewsPage() {
   const [textDraft, setTextDraft] = useState({}); // id -> string
   const [ratingDraft, setRatingDraft] = useState({}); // id -> number
   const [saving, setSaving] = useState({}); // id -> 'text' | 'rating' | undefined
+  const [expandedReviewId, setExpandedReviewId] = useState(null);
 
   const loadMore = async () => {
     if (loading || nextOffset === null) return;
     setLoading(true);
     try {
       const { items, nextOffset: no } = await listMyReviews({ limit: 5, offset: nextOffset });
-      setReviews(prev => [...prev, ...items]);
+      
+      // Enrich album reviews with media metadata
+      const enrichedItems = await Promise.all(
+        items.map(async (review) => {
+          if (review.type === 'album' && review.oid) {
+            try {
+              const albumResponse = await fetch(`/api/spotify/album/${review.oid}`, { credentials: 'include' });
+              if (albumResponse.ok) {
+                const albumData = await albumResponse.json();
+                if (albumData.ok && albumData.data) {
+                  return {
+                    ...review,
+                    media: {
+                      title: albumData.data.name || 'Unknown Album',
+                      coverArt: albumData.data.images?.[0]?.url || '',
+                      route: `/album/${review.oid}`,
+                    },
+                  };
+                }
+              }
+            } catch (e) {
+              console.error('Failed to fetch album data:', e);
+            }
+          } else if (review.type === 'song' && review.oid) {
+            try {
+              const songResponse = await fetch(`/api/spotify/track/${review.oid}`, { credentials: 'include' });
+              if (songResponse.ok) {
+                const songData = await songResponse.json();
+                if (songData.ok && songData.data) {
+                  return {
+                    ...review,
+                    media: {
+                      title: songData.data.name || 'Unknown Song',
+                      coverArt: songData.data.album?.images?.[0]?.url || '',
+                      route: `/song/${review.oid}`,
+                    },
+                  };
+                }
+              }
+            } catch (e) {
+              console.error('Failed to fetch song data:', e);
+            }
+          } else if (review.type === 'artist' && review.oid) {
+            try {
+              const artistResponse = await fetch(`/api/spotify/artist/${review.oid}`, { credentials: 'include' });
+              if (artistResponse.ok) {
+                const artistData = await artistResponse.json();
+                if (artistData.ok && artistData.data) {
+                  return {
+                    ...review,
+                    media: {
+                      title: artistData.data.name || 'Unknown Artist',
+                      coverArt: artistData.data.images?.[0]?.url || '',
+                      route: `/artist/${review.oid}`,
+                    },
+                  };
+                }
+              }
+            } catch (e) {
+              console.error('Failed to fetch artist data:', e);
+            }
+          }
+          return review;
+        })
+      );
+      
+      setReviews(prev => [...prev, ...enrichedItems]);
       setNextOffset(typeof no === 'number' ? no : null);
     } catch (e) {
       if (String(e.message).includes('unauthorized')) setAuthError(true);
@@ -106,6 +173,92 @@ export default function MyReviewsPage() {
     }
   };
 
+  const handleDeleteReview = async (id) => {
+    const r = reviews.find(x => x.id === id);
+    if (!r) return;
+    
+    if (!confirm('Are you sure you want to delete this review? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      await deleteMyReview(r.type, r.oid);
+      
+      // Successfully deleted - remove from local state
+      setReviews(prev => prev.filter(item => item.id !== id));
+      
+      // Clean up edit state
+      setEditOpen(prev => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+      setTextDraft(prev => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+      setRatingDraft(prev => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+    } catch (e) {
+      const errorMsg = String(e.message || e);
+      if (errorMsg.includes('unauthorized')) {
+        alert('Please sign in to delete your review.');
+      } else if (errorMsg.includes('review_not_found')) {
+        // Review was already deleted - still remove from UI
+        setReviews(prev => prev.filter(item => item.id !== id));
+        alert('Review was already deleted.');
+      } else {
+        alert('Failed to delete review. Please try again.');
+        console.error('Delete error:', e);
+      }
+    }
+  };
+
+  useEffect(() => {
+    const fetchReviews = async () => {
+      try {
+        const response = await fetch('/api/reviews/my/list', { credentials: 'include' });
+        const data = await response.json();
+        if (data.ok) {
+          const enrichedReviews = await Promise.all(
+            data.items.map(async (review) => {
+              if (review.type === 'album' && review.oid) {
+                const albumResponse = await fetch(`/api/albums/${review.oid}`, { credentials: 'include' });
+                if (albumResponse.ok) {
+                  const albumData = await albumResponse.json();
+                  if (albumData.ok && albumData.data) {
+                    return {
+                      ...review,
+                      media: {
+                        title: albumData.data.name || 'Unknown Album',
+                        coverArt: albumData.data.image || '',
+                        route: `/album/${review.oid}`, // Add route for navigation
+                      },
+                    };
+                  }
+                }
+              }
+              return review;
+            })
+          );
+          setReviews(enrichedReviews);
+        }
+      } catch (error) {
+        console.error('Failed to fetch reviews:', error);
+      }
+    };
+
+    fetchReviews();
+  }, []);
+
+  const toggleExpandReview = (reviewId) => {
+    setExpandedReviewId((prevId) => (prevId === reviewId ? null : reviewId));
+  };
+
   return (
     <main className="container mx-auto px-4 py-8">
       <h1 className="text-2xl font-bold mb-6">
@@ -166,12 +319,18 @@ export default function MyReviewsPage() {
                         ) : (
                           <p className="text-gray-600 dark:text-gray-400 italic">No review text</p>
                         )}
-                        <div className="mt-3">
+                        <div className="mt-3 flex gap-2">
                           <button
                             onClick={() => handleToggleEdit(r.id, r.text)}
                             className="border-2 border-black dark:border-white px-3 py-1 bg-white dark:bg-gray-900 text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800"
                           >
                             Edit Review
+                          </button>
+                          <button
+                            onClick={() => handleDeleteReview(r.id)}
+                            className="border-2 border-red-600 dark:border-red-500 px-3 py-1 bg-white dark:bg-gray-900 text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+                          >
+                            Delete
                           </button>
                         </div>
                       </>
@@ -212,6 +371,29 @@ export default function MyReviewsPage() {
                     )}
                   </div>
                 </div>
+                {r.type === 'album' && r.trackRatings && Object.keys(r.trackRatings).length > 0 && (
+                  <div className="mt-4">
+                    <button
+                      onClick={() => toggleExpandReview(r.id)}
+                      className="text-sm text-blue-500 dark:text-blue-400 hover:underline"
+                    >
+                      {expandedReviewId === r.id ? 'Hide Track Ratings' : 'Show Track Ratings'}
+                    </button>
+                    {expandedReviewId === r.id && (
+                      <div className="mt-4 border-t-2 border-black dark:border-white pt-4">
+                        <h3 className="font-semibold mb-2 text-black dark:text-white">Track Ratings</h3>
+                        <div className="space-y-2">
+                          {Object.entries(r.trackRatings).map(([trackId, rating]) => (
+                            <div key={trackId} className="flex items-center justify-between">
+                              <span className="text-sm text-gray-600 dark:text-gray-400">Track {trackId}</span>
+                              <span className="text-sm text-black dark:text-white">{rating}/5</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -232,4 +414,6 @@ export default function MyReviewsPage() {
       )}
     </main>
   );
-}
+};
+
+export default MyReviewsPage;

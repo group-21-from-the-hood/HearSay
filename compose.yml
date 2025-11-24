@@ -1,18 +1,17 @@
 networks: 
-  public_bridge:
+  app-network:
     driver: bridge
     ipam:
       driver: default
       config:
         - subnet: 172.19.0.0/24
           gateway: 172.19.0.1
-
-
+  
 services:
 
   mongodb:
     image: mongo:latest # Or specify a version like mongo:6.0
-    container_name: mongodb
+    container_name: hearsay_mongodb
     ports:
       - "27017:27017" # Map host port 27017 to container port 27017
     volumes:
@@ -20,20 +19,73 @@ services:
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
+    env_file:
+      - ./hearsay/.env.production
     restart: unless-stopped # Restart policy
     networks:
-      public_bridge:
+      app-network:
         ipv4_address: 172.19.0.101
+  
+  backend:
+    build: 
+      context: ./hearsay
+      dockerfile: dockerfile.backend
+    container_name: hearsay_backend
+    ports:
+      - "5174:5174"
+    environment:
+      NODE_ENV: production
+    env_file:
+      - ./hearsay/.env.production
+    restart: unless-stopped # Restart policy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:5174/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      app-network:
+        ipv4_address: 172.19.0.103
+    depends_on:
+      - mongodb
+  
+  frontend:
+    build: 
+      context: ./hearsay
+      dockerfile: dockerfile.frontend
+    container_name: hearsay_frontend
+    ports:
+      - "8080:80"
+    environment:
+      NODE_ENV: production
+      VITE_API_BASE: /api
+    env_file:
+      - ./hearsay/.env.production
+    restart: unless-stopped # Restart policy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://backend:5174/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      app-network:
+        ipv4_address: 172.19.0.102
+    depends_on:
+      - backend
 
-
-  # cloudflared: 
-  #   # depends_on:
-  #   image: cloudflare/cloudflared:latest
-  #   container_name: cloudflare-tunnel 
-  #   restart: unless-stopped 
-  #   command: tunnel run 
-  #   environment: 
-  #     - TUNNEL_TOKEN=${CLOUDFLARED_TOKEN}
-  #   networks:
-  #     public_bridge:
-  #       ipv4_address: 172.19.0.100
+  nginx-rev-proxy:
+    container_name: hearsay_reverseproxy
+    image: 'jc21/nginx-proxy-manager:latest'
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8181:81"
+    environment:
+      TZ: "America/Toronto"
+    volumes:
+      - ./nginxrevproxy/data:/data
+      - ./nginxrevproxy/letsencrypt:/etc/letsencrypt   
+    networks:
+      app-network:
+        ipv4_address: 172.19.0.104
