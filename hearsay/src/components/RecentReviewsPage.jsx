@@ -3,39 +3,56 @@ import { Link, useNavigate } from 'react-router-dom';
 import HeadphoneRating from './HeadphoneRating';
 
 export default function RecentReviewsPage() {
-  const [reviews, setReviews] = useState([]);
-  const [nextOffset, setNextOffset] = useState(0);
-  const [loading, setLoading] = useState(false);
+  const [songReviews, setSongReviews] = useState([]);
+  const [albumReviews, setAlbumReviews] = useState([]);
+  const [songNextOffset, setSongNextOffset] = useState(0);
+  const [albumNextOffset, setAlbumNextOffset] = useState(0);
+  const [songLoading, setSongLoading] = useState(false);
+  const [albumLoading, setAlbumLoading] = useState(false);
   const didInit = useRef(false);
   const navigate = useNavigate();
 
-  const loadMore = async () => {
-    if (loading || nextOffset === null) return;
-    setLoading(true);
+  const loadMoreSongs = async () => {
+    if (songLoading || songNextOffset === null) return;
+    setSongLoading(true);
     try {
-      const res = await fetch(`/api/reviews/recent?limit=20&offset=${nextOffset}`, { credentials: 'include' });
+      const res = await fetch(`/api/reviews/recent?limit=5&offset=${songNextOffset}&type=song`, { credentials: 'include' });
       const data = await res.json();
       if (data.ok) {
-        setReviews(prev => [...prev, ...(data.items || [])]);
-        setNextOffset(typeof data.nextOffset === 'number' ? data.nextOffset : null);
+        setSongReviews(prev => [...prev, ...(data.items || [])]);
+        setSongNextOffset(typeof data.nextOffset === 'number' ? data.nextOffset : null);
       }
     } catch (e) {
-      console.error('Failed to load recent reviews', e);
+      console.error('Failed to load song reviews', e);
     } finally {
-      setLoading(false);
+      setSongLoading(false);
+    }
+  };
+
+  const loadMoreAlbums = async () => {
+    if (albumLoading || albumNextOffset === null) return;
+    setAlbumLoading(true);
+    try {
+      const res = await fetch(`/api/reviews/recent?limit=5&offset=${albumNextOffset}&type=album`, { credentials: 'include' });
+      const data = await res.json();
+      if (data.ok) {
+        setAlbumReviews(prev => [...prev, ...(data.items || [])]);
+        setAlbumNextOffset(typeof data.nextOffset === 'number' ? data.nextOffset : null);
+      }
+    } catch (e) {
+      console.error('Failed to load album reviews', e);
+    } finally {
+      setAlbumLoading(false);
     }
   };
 
   useEffect(() => {
     if (didInit.current) return;
     didInit.current = true;
-    loadMore();
+    loadMoreSongs();
+    loadMoreAlbums();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  // Split reviews by type
-  const songReviews = reviews.filter(r => r.type === 'song');
-  const albumReviews = reviews.filter(r => r.type === 'album');
 
   const ReviewCard = ({ r }) => (
     <div
@@ -86,61 +103,65 @@ export default function RecentReviewsPage() {
         <span className="text-black dark:text-white">Recent Reviews</span>
       </h1>
       
-      {reviews.length === 0 && !loading ? (
-        <div className="border-2 border-black dark:border-white bg-white dark:bg-gray-900 p-8 text-center">
-          <p className="text-gray-600 dark:text-gray-400">No reviews yet</p>
-        </div>
-      ) : (
-        <>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Songs Column */}
-            <div>
-              <h2 className="text-xl font-semibold mb-4">
-                <span className="text-black dark:text-white">Songs ({songReviews.length})</span>
-              </h2>
-              <div className="space-y-2">
-                {songReviews.length > 0 ? (
-                  songReviews.map(r => <ReviewCard key={r.id} r={r} />)
-                ) : (
-                  <div className="border-2 border-black dark:border-white bg-white dark:bg-gray-900 p-6 text-center">
-                    <p className="text-gray-600 dark:text-gray-400">No song reviews yet</p>
-                  </div>
-                )}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Songs Column */}
+        <div>
+          <h2 className="text-xl font-semibold mb-4">
+            <span className="text-black dark:text-white">Songs ({songReviews.length})</span>
+          </h2>
+          <div className="space-y-2">
+            {songReviews.length > 0 ? (
+              songReviews.map(r => <ReviewCard key={r.id} r={r} />)
+            ) : !songLoading ? (
+              <div className="border-2 border-black dark:border-white bg-white dark:bg-gray-900 p-6 text-center">
+                <p className="text-gray-600 dark:text-gray-400">No song reviews yet</p>
               </div>
-            </div>
-
-            {/* Albums Column */}
-            <div>
-              <h2 className="text-xl font-semibold mb-4">
-                <span className="text-black dark:text-white">Albums ({albumReviews.length})</span>
-              </h2>
-              <div className="space-y-2">
-                {albumReviews.length > 0 ? (
-                  albumReviews.map(r => <ReviewCard key={r.id} r={r} />)
-                ) : (
-                  <div className="border-2 border-black dark:border-white bg-white dark:bg-gray-900 p-6 text-center">
-                    <p className="text-gray-600 dark:text-gray-400">No album reviews yet</p>
-                  </div>
-                )}
-              </div>
-            </div>
+            ) : null}
           </div>
-          
-          <div className="mt-6 flex justify-center">
-            {nextOffset !== null ? (
+          <div className="mt-4 flex justify-center">
+            {songNextOffset !== null ? (
               <button
-                disabled={loading}
-                onClick={loadMore}
+                disabled={songLoading}
+                onClick={loadMoreSongs}
                 className="px-4 py-2 border-2 border-black dark:border-white bg-white dark:bg-gray-900 text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-60"
               >
-                {loading ? 'Loading…' : 'Load More'}
+                {songLoading ? 'Loading…' : 'Load More Songs'}
               </button>
-            ) : (
-              <p className="text-gray-600 dark:text-gray-400">End of results</p>
-            )}
+            ) : songReviews.length > 0 ? (
+              <p className="text-gray-600 dark:text-gray-400 text-sm">No more songs</p>
+            ) : null}
           </div>
-        </>
-      )}
+        </div>
+
+        {/* Albums Column */}
+        <div>
+          <h2 className="text-xl font-semibold mb-4">
+            <span className="text-black dark:text-white">Albums ({albumReviews.length})</span>
+          </h2>
+          <div className="space-y-2">
+            {albumReviews.length > 0 ? (
+              albumReviews.map(r => <ReviewCard key={r.id} r={r} />)
+            ) : !albumLoading ? (
+              <div className="border-2 border-black dark:border-white bg-white dark:bg-gray-900 p-6 text-center">
+                <p className="text-gray-600 dark:text-gray-400">No album reviews yet</p>
+              </div>
+            ) : null}
+          </div>
+          <div className="mt-4 flex justify-center">
+            {albumNextOffset !== null ? (
+              <button
+                disabled={albumLoading}
+                onClick={loadMoreAlbums}
+                className="px-4 py-2 border-2 border-black dark:border-white bg-white dark:bg-gray-900 text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-60"
+              >
+                {albumLoading ? 'Loading…' : 'Load More Albums'}
+              </button>
+            ) : albumReviews.length > 0 ? (
+              <p className="text-gray-600 dark:text-gray-400 text-sm">No more albums</p>
+            ) : null}
+          </div>
+        </div>
+      </div>
     </main>
   );
 }

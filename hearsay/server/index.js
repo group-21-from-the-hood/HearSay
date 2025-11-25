@@ -1931,17 +1931,27 @@ app.get('/api/reviews/recent', async (req, res) => {
   try {
     const limit = Math.max(1, Math.min(parseInt(req.query.limit, 10) || 20, 50));
     const offset = Math.max(0, parseInt(req.query.offset, 10) || 0);
+    const typeFilter = req.query.type; // 'song', 'album', or undefined for all
 
     const reviewsCol = db.ReReviews ? db.ReReviews.collection() : db.Reviews.collection();
     const usersCol = db.Users.collection();
 
+    // Build query filter
+    const query = {};
+    if (typeFilter && ['song', 'album', 'artist'].includes(typeFilter)) {
+      query['item.type'] = typeFilter;
+    }
+
+    console.log('[Reviews][Recent] Query:', JSON.stringify(query), 'typeFilter:', typeFilter, 'limit:', limit, 'offset:', offset);
+
     const cursor = reviewsCol
-      .find({})
+      .find(query)
       .sort({ createdAt: -1, _id: -1 })
       .skip(offset)
       .limit(limit);
 
     const docs = await cursor.toArray();
+    console.log('[Reviews][Recent] Found', docs.length, 'docs, types:', docs.map(d => d?.item?.type).join(','));
     if (!docs.length) return res.json({ ok: true, items: [], nextOffset: null });
 
     const userOids = [...new Set(docs.map(d => d.user?.oid).filter(Boolean))];
@@ -1967,33 +1977,104 @@ app.get('/api/reviews/recent', async (req, res) => {
     const albumMap = new Map();
     const artistMap = new Map();
 
+    // First try to get songs from our database
     if (songIds.length) {
-      const r = await spotify.getSeveralTracks(songIds.slice(0, 50));
-      if (r?.data?.tracks) {
-        for (const t of r.data.tracks) {
-          if (!t) continue;
-          songMap.set(t.id, { title: t.name, coverArt: t.album?.images?.[0]?.url, route: `/song/${t.id}` });
+      const songsCol = db.Songs.collection();
+      const dbSongs = await songsCol
+        .find({ spotifyTrackID: { $in: songIds } })
+        .project({ spotifyTrackID: 1, title: 1, image: 1 })
+        .toArray();
+      
+      for (const s of dbSongs) {
+        if (s.spotifyTrackID) {
+          songMap.set(s.spotifyTrackID, { 
+            title: s.title || 'Untitled', 
+            coverArt: s.image || '', 
+            route: `/song/${s.spotifyTrackID}` 
+          });
+        }
+      }
+      
+      // For any songs not in our DB, fall back to Spotify
+      const missingSongIds = songIds.filter(id => !songMap.has(id));
+      if (missingSongIds.length > 0) {
+        try {
+          const r = await spotify.getSeveralTracks(missingSongIds.slice(0, 50));
+          if (r?.data?.tracks) {
+            for (const t of r.data.tracks) {
+              if (!t) continue;
+              songMap.set(t.id, { title: t.name, coverArt: t.album?.images?.[0]?.url, route: `/song/${t.id}` });
+            }
+          }
+        } catch (spotifyErr) {
+          console.warn('[Reviews][Recent] Spotify track fetch failed', spotifyErr?.message || spotifyErr);
         }
       }
     }
+    // Try to get albums from our database first
     if (albumIds.length) {
-      const r = await spotify.getSeveralAlbums(albumIds.slice(0, 20));
-      if (r?.data?.albums) {
-        for (const a of r.data.albums) {
-          if (!a) continue;
-          albumMap.set(a.id, { title: a.name, coverArt: a.images?.[0]?.url, route: `/album/${a.id}` });
+      const albumsCol = db.Albums.collection();
+      const dbAlbums = await albumsCol
+        .find({ spotifyAlbumId: { $in: albumIds } })
+        .project({ spotifyAlbumId: 1, name: 1, image: 1 })
+        .toArray();
+      
+      for (const a of dbAlbums) {
+        if (a.spotifyAlbumId) {
+          albumMap.set(a.spotifyAlbumId, { 
+            title: a.name || 'Untitled', 
+            coverArt: a.image || '', 
+            route: `/album/${a.spotifyAlbumId}` 
+          });
+        }
+      }
+      
+      // For any albums not in our DB, fall back to Spotify
+      const missingAlbumIds = albumIds.filter(id => !albumMap.has(id));
+      if (missingAlbumIds.length > 0) {
+        try {
+          const r = await spotify.getSeveralAlbums(missingAlbumIds.slice(0, 20));
+          if (r?.data?.albums) {
+            for (const a of r.data.albums) {
+              if (!a) continue;
+              albumMap.set(a.id, { title: a.name, coverArt: a.images?.[0]?.url, route: `/album/${a.id}` });
+            }
+          }
+        } catch (spotifyErr) {
+          console.warn('[Reviews][Recent] Spotify album fetch failed', spotifyErr?.message || spotifyErr);
         }
       }
     }
+    // Try to get artists from our database first
     if (artistIds.length) {
-      for (const id of artistIds.slice(0, 20)) {
+      const artistsCol = db.Artists.collection();
+      const dbArtists = await artistsCol
+        .find({ spotifyArtistId: { $in: artistIds } })
+        .project({ spotifyArtistId: 1, name: 1, image: 1 })
+        .toArray();
+      
+      for (const a of dbArtists) {
+        if (a.spotifyArtistId) {
+          artistMap.set(a.spotifyArtistId, { 
+            title: a.name || 'Unknown Artist', 
+            coverArt: a.image || '', 
+            route: `/artist/${a.spotifyArtistId}` 
+          });
+        }
+      }
+      
+      // For any artists not in our DB, fall back to Spotify
+      const missingArtistIds = artistIds.filter(id => !artistMap.has(id));
+      for (const id of missingArtistIds.slice(0, 20)) {
         try {
           const r = await spotify.getArtist(id);
           const a = r?.data;
           if (a) {
             artistMap.set(id, { title: a.name, coverArt: a.images?.[0]?.url, route: `/artist/${id}` });
           }
-        } catch {}
+        } catch (spotifyErr) {
+          console.warn('[Reviews][Recent] Spotify artist fetch failed for', id, spotifyErr?.message || spotifyErr);
+        }
       }
     }
 

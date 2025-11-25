@@ -36,68 +36,31 @@ export default function AlbumRatingPage() {
 
       try {
         setLoading(true);
-        let albumResponse = null;
-        let albumData = null;
+        
+        // Always fetch from Spotify to get complete tracklist
+        const albumResponse = await getSpotifyAlbum(albumId);
+        const albumData = {
+          id: albumResponse.id,
+          title: albumResponse.name,
+          artist: albumResponse.artists?.[0]?.name,
+          coverArt: albumResponse.images?.[0]?.url,
+          releaseDate: albumResponse.release_date,
+          totalTracks: albumResponse.total_tracks,
+          label: albumResponse.label,
+          popularity: albumResponse.popularity,
+          spotifyUrl: albumResponse.external_urls?.spotify,
+        };
 
-        // Try saved album from DB first
-        try {
-          const savedResp = await fetch(`/api/albums/${albumId}`, { credentials: 'include' });
-          if (savedResp.ok) {
-            const savedJson = await savedResp.json().catch(() => null);
-            if (savedJson?.ok && savedJson.data) {
-              const a = savedJson.data;
-              albumData = {
-                id: a.spotifyAlbumId || albumId,
-                title: a.name || '',
-                artist: a.artist?.oid || '',
-                coverArt: a.image || '',
-                releaseDate: a.releaseDate || '',
-                totalTracks: Array.isArray(a.songs) ? a.songs.length : undefined,
-                label: '',
-                popularity: 0,
-                spotifyUrl: '',
-              };
-
-              // Populate tracklist from saved album data
-              const savedTracks = a.songs || [];
-              setTracks(
-                savedTracks.map((song, index) => ({
-                  id: song.oid,
-                  name: song.name,
-                  duration: 0, // Duration not stored in DB, fetch from Spotify if needed
-                  trackNumber: index + 1, // Use index + 1 for track numbers
-                }))
-              );
-            }
-          }
-        } catch {}
-
-        // If no saved album or missing essential display fields, fallback to Spotify proxy
-        if (!albumData || !albumData.title) {
-          albumResponse = await getSpotifyAlbum(albumId);
-          albumData = {
-            id: albumResponse.id,
-            title: albumResponse.name,
-            artist: albumResponse.artists?.[0]?.name,
-            coverArt: albumResponse.images?.[0]?.url,
-            releaseDate: albumResponse.release_date,
-            totalTracks: albumResponse.total_tracks,
-            label: albumResponse.label,
-            popularity: albumResponse.popularity,
-            spotifyUrl: albumResponse.external_urls?.spotify,
-          };
-
-          // Populate tracklist from Spotify data
-          const trackItems = albumResponse.tracks?.items || [];
-          setTracks(
-            trackItems.map((track) => ({
-              id: track.id,
-              name: track.name,
-              duration: track.duration_ms,
-              trackNumber: track.track_number, // Use Spotify's track number
-            }))
-          );
-        }
+        // Populate tracklist from Spotify data (always complete list)
+        const trackItems = albumResponse.tracks?.items || [];
+        setTracks(
+          trackItems.map((track) => ({
+            id: track.id,
+            name: track.name,
+            duration: track.duration_ms,
+            trackNumber: track.track_number,
+          }))
+        );
 
         setAlbum(albumData);
         setAlbumDetails(albumData);
@@ -134,6 +97,33 @@ export default function AlbumRatingPage() {
     loadMyReview();
   }, [albumId]);
 
+  // Load existing track ratings for the current user
+  useEffect(() => {
+    const loadTrackRatings = async () => {
+      if (!tracks.length) return;
+      
+      try {
+        // Fetch reviews for each track
+        const ratings = {};
+        for (const track of tracks) {
+          try {
+            const existingReview = await getMyReview('song', track.id);
+            if (existingReview && typeof existingReview.rating === 'number') {
+              ratings[track.id] = existingReview.rating;
+            }
+          } catch (e) {
+            // No review for this track, skip
+          }
+        }
+        setTrackRatings(ratings);
+      } catch (e) {
+        // Not logged in or error; ignore
+      }
+    };
+    
+    loadTrackRatings();
+  }, [tracks]);
+
   const handleTrackRating = (trackId, rating) => {
     const sanitizedRating = sanitizeRating(rating);
     setTrackRatings(prev => ({
@@ -150,22 +140,31 @@ export default function AlbumRatingPage() {
 
   const handleSubmitRatings = async () => {
     try {
-      // Ensure all tracks have a rating
-      const trackIds = tracks.map(track => track.id);
-      const missingRatings = trackIds.filter(trackId => !trackRatings[trackId]);
-      if (missingRatings.length > 0) {
-        alert('Please rate all tracks before submitting.');
+      // Filter to only include tracks that have been rated (non-zero ratings)
+      const sanitizedRatings = Object.entries(trackRatings)
+        .filter(([trackId, rating]) => rating && rating > 0)
+        .reduce((acc, [trackId, rating]) => {
+          acc[trackId] = sanitizeRating(rating);
+          return acc;
+        }, {});
+
+      // Check if at least one track has been rated
+      if (Object.keys(sanitizedRatings).length === 0) {
+        alert('Please rate at least one track before submitting.');
         return;
       }
 
-      // Sanitize all ratings before submission
-      const sanitizedRatings = Object.entries(trackRatings).reduce((acc, [trackId, rating]) => {
-        acc[trackId] = sanitizeRating(rating);
-        return acc;
-      }, {});
+      // Submit individual song reviews for each rated track
+      for (const [trackId, rating] of Object.entries(sanitizedRatings)) {
+        await upsertReview({
+          type: 'song',
+          oid: trackId,
+          rating: rating,
+        });
+      }
 
-      // Calculate album rating as the average of track ratings
-      const averageRating = Object.values(sanitizedRatings).reduce((sum, rating) => sum + rating, 0) / trackIds.length;
+      // Calculate album rating as the average of rated tracks only
+      const averageRating = Object.values(sanitizedRatings).reduce((sum, rating) => sum + rating, 0) / Object.keys(sanitizedRatings).length;
       setAlbumRating(averageRating);
 
       // Submit album review with track ratings
@@ -173,7 +172,7 @@ export default function AlbumRatingPage() {
         type: 'album',
         oid: albumId,
         rating: sanitizeRating(averageRating),
-        trackRatings: sanitizedRatings, // Include individual track ratings
+        trackRatings: sanitizedRatings, // Include individual track ratings for reference
       });
 
       // Show success message and reset editing state
