@@ -38,48 +38,39 @@ export default function RecentReviewsPage() {
   const albumReviews = reviews.filter(r => r.type === 'album');
 
   const ReviewCard = ({ r }) => (
-    <div 
-      className="border-2 border-black dark:border-white bg-white dark:bg-gray-900 overflow-hidden cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+    <div
+      className="border-2 border-black dark:border-white bg-white dark:bg-gray-900 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
       onClick={() => navigate(`/review/${r.id}`)}
     >
-      <div className="flex">
-        {/* Left: Album Art */}
-        <div className="flex-shrink-0 w-20 h-20 border-r-2 border-black dark:border-white">
+      <div className="flex p-2 gap-3">
+        {/* Left: Artwork */}
+        <div className="flex-shrink-0 w-24 h-24 md:w-28 md:h-28 border-2 border-black dark:border-white overflow-hidden bg-gray-100 dark:bg-gray-800">
           {r.media?.coverArt ? (
             <img src={r.media.coverArt} alt={r.media?.title || r.oid} className="w-full h-full object-cover" />
           ) : (
-            <div className="w-full h-full flex items-center justify-center bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 text-xs">
-              No Image
-            </div>
+            <div className="w-full h-full flex items-center justify-center text-gray-500 dark:text-gray-400 text-xs">No Image</div>
           )}
         </div>
-
-        {/* Right: Review Content */}
-        <div className="flex-1 p-1.5 min-w-0 h-20 flex flex-col">
-          {/* Header with title and rating */}
-          <div className="flex items-start justify-between gap-1 mb-0.5">
-            <div className="flex-1 min-w-0">
-              <p className="font-medium text-xs text-black dark:text-white truncate">
-                {r.media?.title || r.oid}
-              </p>
+        {/* Right: Content */}
+        <div className="flex-1 min-w-0 flex flex-col">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <p className="font-medium text-sm text-black dark:text-white truncate">{r.media?.title || r.oid}</p>
+              <p className="text-xs font-medium text-gray-700 dark:text-gray-300 truncate">{r.userName}</p>
+              <p className="text-[10px] text-gray-500 dark:text-gray-500">{new Date(r.createdAt).toLocaleDateString()}</p>
             </div>
-            <div className="pointer-events-none flex-shrink-0">
+            <div className="flex-shrink-0 pointer-events-none">
               <HeadphoneRating value={r.rating} onChange={() => {}} size="small" />
             </div>
           </div>
-
-          {/* User and date */}
-          <div className="mb-0.5">
-            <p className="text-xs font-medium text-gray-700 dark:text-gray-300 truncate">{r.userName}</p>
-            <p className="text-xs text-gray-500 dark:text-gray-500">
-              {new Date(r.createdAt).toLocaleDateString()}
-            </p>
-          </div>
-
-          {/* Review text */}
-          <div className="flex-1 min-h-0 overflow-hidden">
+          {/* Review text area with dynamic height & scroll */}
+          <div className="mt-1 relative">
             {r.text ? (
-              <p className="text-xs text-black dark:text-white line-clamp-1">{r.text}</p>
+              <div className="max-h-32 md:max-h-40 overflow-y-auto pr-1">
+                <p className="text-xs text-black dark:text-white whitespace-pre-line">
+                  {r.text}
+                </p>
+              </div>
             ) : (
               <p className="text-xs text-gray-500 dark:text-gray-500 italic">No review text</p>
             )}

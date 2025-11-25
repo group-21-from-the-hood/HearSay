@@ -72,22 +72,46 @@ const BCRYPT_ROUNDS = parseInt(process.env.BCRYPT_ROUNDS || '12', 10) || 12;
 // Trust proxy when behind one (must be set before CORS and session middleware)
 app.set('trust proxy', 1);
 
-// REPLACE old CORS block (origins / app.use(cors({...}))) with:
+// CORS allowed origins derived from env `API_ORIGIN` (comma separated).
+// In development, if none supplied, fall back to Vite dev server origin so local frontend works.
 const origins = (process.env.API_ORIGIN || '')
   .split(',')
   .map(o => o.trim())
   .filter(Boolean);
 
+if (origins.length === 0 && process.env.NODE_ENV !== 'production') {
+  // Add common dev origins; adjust if your frontend runs elsewhere.
+  const devOrigins = ['http://localhost:5173', 'http://127.0.0.1:5173'];
+  for (const o of devOrigins) origins.push(o);
+  console.log('[CORS] Using dev fallback origins:', origins);
+}
+
 app.use(cors({
   origin: (origin, cb) => {
-    // Allow requests with no origin (server-to-server) and same-origin
-    if (!origin) return cb(null, true);
+    // Development: allow all origins (simplifies local proxy + avoids mysterious 400s)
+    if (process.env.NODE_ENV !== 'production') {
+      if (origin && !origins.includes(origin)) {
+        // Track first-time origin appearances for debugging
+        console.log('[CORS][DEV] Allowing origin:', origin);
+      }
+      return cb(null, true);
+    }
+    // Production: strict whitelist
+    if (!origin) return cb(null, true); // server-to-server or same-origin
     if (origins.includes(origin)) return cb(null, true);
-    console.warn('[CORS] Blocked origin:', origin, 'Allowed:', origins);
+    console.warn('[CORS][PROD] Blocked origin:', origin, 'Allowed:', origins);
     return cb(new Error('CORS blocked: ' + origin));
   },
   credentials: true,
 }));
+
+// Diagnostics for recent reviews requests
+app.use((req, _res, next) => {
+  if (req.path.startsWith('/api/reviews/recent')) {
+    console.log('[DEBUG][recent] method=', req.method, 'origin=', req.headers.origin, 'url=', req.originalUrl);
+  }
+  next();
+});
 
 app.use((req, res, next) => {
   if (req.method === 'OPTIONS') {
@@ -1900,6 +1924,109 @@ app.get('/api/albums/:id', async (req, res) => {
   }
 });
 
+// List recent reviews from all users (public, paginated)
+// NOTE: Must be defined BEFORE the dynamic :reviewId route to avoid
+// '/api/reviews/recent' being captured as a reviewId.
+app.get('/api/reviews/recent', async (req, res) => {
+  try {
+    const limit = Math.max(1, Math.min(parseInt(req.query.limit, 10) || 20, 50));
+    const offset = Math.max(0, parseInt(req.query.offset, 10) || 0);
+
+    const reviewsCol = db.ReReviews ? db.ReReviews.collection() : db.Reviews.collection();
+    const usersCol = db.Users.collection();
+
+    const cursor = reviewsCol
+      .find({})
+      .sort({ createdAt: -1, _id: -1 })
+      .skip(offset)
+      .limit(limit);
+
+    const docs = await cursor.toArray();
+    if (!docs.length) return res.json({ ok: true, items: [], nextOffset: null });
+
+    const userOids = [...new Set(docs.map(d => d.user?.oid).filter(Boolean))];
+    const users = await usersCol
+      .find({ _id: { $in: userOids.map(id => new ObjectId(id)) } })
+      .project({ _id: 1, firstname: 1, lastname: 1, email: 1 })
+      .toArray();
+    const userMap = new Map(users.map(u => [u._id.toString(), u]));
+
+    const songIds = [];
+    const albumIds = [];
+    const artistIds = [];
+    for (const d of docs) {
+      const t = d?.item?.type;
+      const id = d?.item?.oid;
+      if (!id || !t) continue;
+      if (t === 'song') songIds.push(id);
+      else if (t === 'album') albumIds.push(id);
+      else if (t === 'artist') artistIds.push(id);
+    }
+
+    const songMap = new Map();
+    const albumMap = new Map();
+    const artistMap = new Map();
+
+    if (songIds.length) {
+      const r = await spotify.getSeveralTracks(songIds.slice(0, 50));
+      if (r?.data?.tracks) {
+        for (const t of r.data.tracks) {
+          if (!t) continue;
+          songMap.set(t.id, { title: t.name, coverArt: t.album?.images?.[0]?.url, route: `/song/${t.id}` });
+        }
+      }
+    }
+    if (albumIds.length) {
+      const r = await spotify.getSeveralAlbums(albumIds.slice(0, 20));
+      if (r?.data?.albums) {
+        for (const a of r.data.albums) {
+          if (!a) continue;
+          albumMap.set(a.id, { title: a.name, coverArt: a.images?.[0]?.url, route: `/album/${a.id}` });
+        }
+      }
+    }
+    if (artistIds.length) {
+      for (const id of artistIds.slice(0, 20)) {
+        try {
+          const r = await spotify.getArtist(id);
+          const a = r?.data;
+          if (a) {
+            artistMap.set(id, { title: a.name, coverArt: a.images?.[0]?.url, route: `/artist/${id}` });
+          }
+        } catch {}
+      }
+    }
+
+    const items = docs.map(d => {
+      const type = d?.item?.type;
+      const id = d?.item?.oid;
+      let media = null;
+      if (type === 'song') media = songMap.get(id) || null;
+      else if (type === 'album') media = albumMap.get(id) || null;
+      else if (type === 'artist') media = artistMap.get(id) || null;
+      const userDoc = userMap.get(d.user?.oid);
+      const userName = userDoc ? [userDoc.firstname, userDoc.lastname].filter(Boolean).join(' ') || userDoc.email : 'Anonymous';
+      return {
+        id: d._id?.toString?.(),
+        type,
+        oid: id,
+        rating: typeof d.rating === 'number' ? d.rating / 2 : 0,
+        text: d.text || '',
+        createdAt: d.createdAt || d.updatedAt || new Date().toISOString(),
+        updatedAt: d.updatedAt || d.createdAt || new Date().toISOString(),
+        userName,
+        media,
+      };
+    });
+
+    const nextOffset = items.length < limit ? null : offset + items.length;
+    return res.json({ ok: true, items, nextOffset });
+  } catch (e) {
+    console.error('[Reviews] recent reviews error', e);
+    return res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
 // Get a single review by ID (public)
 app.get('/api/reviews/:reviewId', async (req, res) => {
   try {
@@ -1967,6 +2094,8 @@ app.get('/api/reviews/:reviewId', async (req, res) => {
       createdAt: review.createdAt,
       updatedAt: review.updatedAt,
       userName,
+      userOid: review.user?.oid || null,
+      canEdit: !!(req.session?.user?.oid && review.user?.oid && req.session.user.oid === review.user.oid),
       media,
     };
 
@@ -1977,126 +2106,7 @@ app.get('/api/reviews/:reviewId', async (req, res) => {
   }
 });
 
-// List recent reviews from all users (public, paginated)
-app.get('/api/reviews/recent', async (req, res) => {
-  try {
-    const limit = Math.max(1, Math.min(parseInt(req.query.limit, 10) || 20, 50));
-    const offset = Math.max(0, parseInt(req.query.offset, 10) || 0);
-
-    const reviewsCol = db.Reviews.collection();
-    const usersCol = db.Users.collection();
-
-    // Fetch reviews - include all reviews (not just those with ratings > 0)
-    // Sort by createdAt descending to get most recent first
-    const cursor = reviewsCol
-      .find({})
-      .sort({ createdAt: -1, _id: -1 })
-      .skip(offset)
-      .limit(limit);
-
-    const docs = await cursor.toArray();
-    if (!docs.length) return res.json({ ok: true, items: [], nextOffset: null });
-
-    // Get unique user OIDs to fetch user info
-    const userOids = [...new Set(docs.map(d => d.user?.oid).filter(Boolean))];
-    const users = await usersCol
-      .find({ _id: { $in: userOids.map(id => new ObjectId(id)) } })
-      .project({ _id: 1, firstname: 1, lastname: 1, email: 1 })
-      .toArray();
-    const userMap = new Map(users.map(u => [u._id.toString(), u]));
-
-    // Collect media IDs
-    const songIds = [];
-    const albumIds = [];
-    const artistIds = [];
-    for (const d of docs) {
-      const t = d?.item?.type;
-      const id = d?.item?.oid;
-      if (!id || !t) continue;
-      if (t === 'song') songIds.push(id);
-      else if (t === 'album') albumIds.push(id);
-      else if (t === 'artist') artistIds.push(id);
-    }
-
-    const songMap = new Map();
-    const albumMap = new Map();
-    const artistMap = new Map();
-
-    if (songIds.length) {
-      const r = await spotify.getSeveralTracks(songIds.slice(0, 50));
-      if (r?.data?.tracks) {
-        for (const t of r.data.tracks) {
-          if (!t) continue;
-          songMap.set(t.id, {
-            title: t.name,
-            coverArt: t.album?.images?.[0]?.url,
-            route: `/song/${t.id}`,
-          });
-        }
-      }
-    }
-    if (albumIds.length) {
-      const r = await spotify.getSeveralAlbums(albumIds.slice(0, 20));
-      if (r?.data?.albums) {
-        for (const a of r.data.albums) {
-          if (!a) continue;
-          albumMap.set(a.id, {
-            title: a.name,
-            coverArt: a.images?.[0]?.url,
-            route: `/album/${a.id}`,
-          });
-        }
-      }
-    }
-    if (artistIds.length) {
-      // No several-artists helper; fetch individually (limit small page size)
-      for (const id of artistIds.slice(0, 20)) {
-        try {
-          const r = await spotify.getArtist(id);
-          const a = r?.data;
-          if (a) {
-            artistMap.set(id, {
-              title: a.name,
-              coverArt: a.images?.[0]?.url,
-              route: `/artist/${id}`,
-            });
-          }
-        } catch {}
-
-      }
-    }
-
-    const items = docs.map(d => {
-      const type = d?.item?.type;
-      const id = d?.item?.oid;
-      let media = null;
-      if (type === 'song') media = songMap.get(id) || null;
-      else if (type === 'album') media = albumMap.get(id) || null;
-      else if (type === 'artist') media = artistMap.get(id) || null;
-
-      const userDoc = userMap.get(d.user?.oid);
-      const userName = userDoc ? [userDoc.firstname, userDoc.lastname].filter(Boolean).join(' ') || userDoc.email : 'Anonymous';
-
-      return {
-        id: d._id?.toString?.(),
-        type,
-        oid: id,
-        rating: typeof d.rating === 'number' ? d.rating / 2 : 0,
-        text: d.text || '',
-        createdAt: d.createdAt || d.updatedAt || new Date().toISOString(),
-        updatedAt: d.updatedAt || d.createdAt || new Date().toISOString(),
-        userName,
-        media,
-      };
-    });
-
-    const nextOffset = items.length < limit ? null : offset + items.length;
-    return res.json({ ok: true, items, nextOffset });
-  } catch (e) {
-    console.error('[Reviews] recent reviews error', e);
-    return res.status(500).json({ ok: false, error: 'server_error' });
-  }
-});
+// (Removed duplicate /api/reviews/recent route; primary definition placed before :reviewId)
 
 // Debug: fetch raw review doc for current user & item (no media mutations)
 app.get('/api/reviews/debug/find', async (req, res) => {

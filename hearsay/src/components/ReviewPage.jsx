@@ -7,6 +7,11 @@ export default function ReviewPage() {
   const [review, setReview] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [editMode, setEditMode] = useState(false);
+  const [formRating, setFormRating] = useState(0);
+  const [formText, setFormText] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState(null);
 
   useEffect(() => {
     const fetchReview = async () => {
@@ -16,6 +21,8 @@ export default function ReviewPage() {
         const data = await res.json();
         if (res.ok && data.ok) {
           setReview(data.review);
+          setFormRating(data.review.rating || 0);
+          setFormText(data.review.text || '');
         } else {
           setError(data.error || 'Failed to load review');
         }
@@ -47,6 +54,51 @@ export default function ReviewPage() {
     );
   }
 
+  const beginEdit = () => {
+    setFormRating(review.rating || 0);
+    setFormText(review.text || '');
+    setEditMode(true);
+    setSaveError(null);
+  };
+
+  const cancelEdit = () => {
+    setEditMode(false);
+    setFormRating(review.rating || 0);
+    setFormText(review.text || '');
+    setSaveError(null);
+  };
+
+  const saveEdit = async () => {
+    if (!review?.canEdit) return;
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const body = {
+        type: review.type,
+        oid: review.oid,
+        rating: formRating,
+        text: formText,
+      };
+      const res = await fetch('/api/reviews/upsert', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(body),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.ok && data.review) {
+        setReview(data.review);
+        setEditMode(false);
+      } else {
+        setSaveError(data.error || 'Failed to save');
+      }
+    } catch (e) {
+      setSaveError('Failed to save');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <main className="container mx-auto px-4 py-8">
       <div className="max-w-3xl mx-auto">
@@ -77,17 +129,58 @@ export default function ReviewPage() {
                       {new Date(review.createdAt).toLocaleDateString()} at {new Date(review.createdAt).toLocaleTimeString()}
                     </p>
                   </div>
-                  <div className="pointer-events-none">
-                    <HeadphoneRating value={review.rating} onChange={() => {}} size="medium" />
+                  <div>
+                    {editMode && review.canEdit ? (
+                      <HeadphoneRating value={formRating} onChange={v => setFormRating(v)} size="medium" />
+                    ) : (
+                      <div className="pointer-events-none">
+                        <HeadphoneRating value={review.rating} onChange={() => {}} size="medium" />
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
-
-              <div className="border-t-2 border-black dark:border-white pt-4">
-                {review.text ? (
-                  <p className="whitespace-pre-wrap text-black dark:text-white">{review.text}</p>
+              <div className="border-t-2 border-black dark:border-white pt-4 space-y-4">
+                {editMode && review.canEdit ? (
+                  <>
+                    <textarea
+                      value={formText}
+                      onChange={e => setFormText(e.target.value)}
+                      rows={8}
+                      maxLength={8000}
+                      className="w-full border-2 border-black dark:border-white bg-white dark:bg-gray-800 text-black dark:text-white p-3 text-sm"
+                      placeholder="Update your review text"
+                    />
+                    {saveError && (
+                      <div className="text-red-600 dark:text-red-400 text-sm">{saveError}</div>
+                    )}
+                    <div className="flex gap-3 flex-wrap">
+                      <button
+                        disabled={saving}
+                        onClick={saveEdit}
+                        className="px-4 py-2 border-2 border-black dark:border-white bg-white dark:bg-gray-900 text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-60"
+                      >{saving ? 'Saving…' : 'Save Changes'}</button>
+                      <button
+                        disabled={saving}
+                        onClick={cancelEdit}
+                        className="px-4 py-2 border-2 border-black dark:border-white bg-white dark:bg-gray-900 text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800"
+                      >Cancel</button>
+                    </div>
+                  </>
                 ) : (
-                  <p className="text-gray-600 dark:text-gray-400 italic">No review text</p>
+                  review.text ? (
+                    <p className="whitespace-pre-wrap text-black dark:text-white">{review.text}</p>
+                  ) : (
+                    <p className="text-gray-600 dark:text-gray-400 italic">No review text</p>
+                  )
+                )}
+                {!editMode && review.canEdit && (
+                  <div>
+                    <button
+                      onClick={beginEdit}
+                      className="mt-2 px-4 py-2 border-2 border-black dark:border-white bg-white dark:bg-gray-900 text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800"
+                    >Edit Review</button>
+                  </div>
                 )}
               </div>
             </div>
