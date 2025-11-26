@@ -272,23 +272,108 @@ const MyReviewsPage = () => {
                   <div className="sm:col-span-2 border-2 border-black dark:border-white p-3 min-h-[12rem] sm:min-h-0">
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-3">
                       <p className="text-sm text-gray-600 dark:text-gray-400">Updated {new Date(r.updatedAt || r.createdAt).toLocaleString()}</p>
-+
-+                      <div className="mt-2 sm:mt-0 flex items-center gap-2">
-+                        {/* rating control: will appear under title on mobile because the panel is stacked */}
-+                        <HeadphoneRating
-+                          value={ratingDraft[r.id] ?? (Number(r.rating) || 0)}
-+                          onChange={(val) => setRatingDraft(prev => ({ ...prev, [r.id]: val }))}
-+                          size="small"
-+                          showBox={true}
-+                          compact={false}
-+                          stackOnSmall={true}
-+                        />
-+                        <button
-+                          disabled={saving[r.id] === 'rating'}
-+                          onClick={() => handleUpdateRating(r.id)}
-+                          className="border-2 border-black dark:border-white px-3 py-1 bg-white dark:bg-gray-900 text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-60"
-+                        >
-+                          {saving[r.id] === 'rating' ? 'Saving…' : 'Update Rating'}
-+                        </button>
-+                      </div>
-                    
+
+                      <div className="mt-2 sm:mt-0 flex items-center gap-2">
+                        {/* rating control: will appear under title on mobile because the panel is stacked */}
+                        <HeadphoneRating
+                          value={ratingDraft[r.id] ?? (Number(r.rating) || 0)}
+                          onChange={(val) => setRatingDraft(prev => ({ ...prev, [r.id]: val }))}
+                          size="small"
+                          showBox={true}
+                          compact={false}
+                          stackOnSmall={true}
+                        />
+                        <button
+                          disabled={saving[r.id] === 'rating'}
+                          onClick={() => handleUpdateRating(r.id)}
+                          className="border-2 border-black dark:border-white px-3 py-1 bg-white dark:bg-gray-900 text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-60"
+                        >
+                          {saving[r.id] === 'rating' ? 'Saving…' : 'Update Rating'}
+                        </button>
+                      </div>
+                    </div>
+                    <div className="prose dark:prose-invert max-w-none mb-4">
+                      {expandedReviewId === r.id ? (
+                        <>
+                          <p className="whitespace-pre-line">{r.text}</p>
+                          <button
+                            onClick={() => setExpandedReviewId(null)}
+                            className="text-sm text-blue-600 dark:text-blue-400 hover:underline mt-2"
+                          >
+                            Collapse
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <p className="whitespace-pre-line line-clamp-3">{r.text}</p>
+                          <button
+                            onClick={() => setExpandedReviewId(r.id)}
+                            className="text-sm text-blue-600 dark:text-blue-400 hover:underline mt-2"
+                          >
+                            Read more
+                          </button>
+                        </>
+                      )}
+                    </div>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <button
+                        onClick={() => handleToggleEdit(r.id, r.text)}
+                        className="flex-1 border-2 border-black dark:border-white px-3 py-2 bg-white dark:bg-gray-900 text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800"
+                      >
+                        {editOpen[r.id] ? 'Cancel' : 'Edit Review'}
+                      </button>
+                      <button
+                        onClick={() => handleDeleteReview(r.id)}
+                        className="flex-1 border-2 border-red-600 dark:border-red-400 px-3 py-2 bg-red-50 dark:bg-red-900 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-800"
+                      >
+                        Delete Review
+                      </button>
+                    </div>
+                    {editOpen[r.id] && (
+                      <div className="mt-4">
+                        <textarea
+                          value={textDraft[r.id]}
+                          onChange={e => handleTextChange(r.id, e.target.value)}
+                          className="w-full p-2 border-2 border-black dark:border-white rounded-md resize-none"
+                          rows={3}
+                          placeholder="Write your review here..."
+                        />
+                        <div className="flex gap-2 mt-2">
+                          <button
+                            onClick={() => handleSaveReview(r.id)}
+                            className="flex-1 border-2 border-black dark:border-white px-3 py-2 bg-black dark:bg-white text-white dark:text-black hover:bg-gray-800 dark:hover:bg-gray-200"
+                          >
+                            {saving[r.id] === 'text' ? 'Saving…' : 'Save Review'}
+                          </button>
+                          <button
+                            onClick={() => handleToggleEdit(r.id, r.text)}
+                            className="flex-1 border-2 border-gray-300 dark:border-gray-700 px-3 py-2 bg-white dark:bg-gray-900 text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          {nextOffset !== null && (
+            <div className="mt-4 text-center">
+              <button
+                onClick={loadMore}
+                className="px-4 py-2 border-2 border-black dark:border-white bg-white dark:bg-gray-900 text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-60"
+                disabled={loading}
+              >
+                {loading ? 'Loading more...' : 'Load more reviews'}
+              </button>
+            </div>
+          )}
+        </>
+      )}
+    </main>
+  );
+};
+
+export default MyReviewsPage;
