@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { useNavigate } from 'react-router-dom';
 import Header from './Header';
@@ -41,15 +41,12 @@ export default function AuthPage() {
   const navigate = useNavigate();
   const { theme, toggle } = useTheme();
 
-  // Central API base: allow explicit port override via env; fallback to backend port
-  // Example: VITE_API_BASE=http://localhost:5174/api  (or relative '/api' to use proxy)
-  const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:5174/api';
-
   const validateEmail = (e) => /\S+@\S+\.\S+/.test(e);
 
   const handleLocalSubmit = async (ev) => {
     ev.preventDefault();
     setError(null);
+
     if (!validateEmail(email)) {
       setError('Please enter a valid email address.');
       return;
@@ -58,36 +55,45 @@ export default function AuthPage() {
       setError('Password must be at least 6 characters.');
       return;
     }
-    if (mode === 'signup' && password !== confirm) {
-      setError('Passwords do not match.');
-      return;
-    }
-    setLoading(true);
-    try {
-      const endpoint = `${API_BASE}/auth/local/${mode === 'signup' ? 'signup' : 'login'}`;
-      const resp = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ email, password }),
-      });
-      const data = await resp.json().catch(() => ({}));
-      if (!resp.ok || !data.ok) {
-        const errCode = data.error || 'unknown_error';
-        if (errCode === 'email_in_use') setError('An account with that email already exists.');
-        else if (errCode === 'weak_password') setError(`Password must be at least ${data.minLength || 6} characters.`);
-        else if (errCode === 'invalid_credentials') setError('Invalid email or password.');
-        else if (errCode === 'no_local_account') setError('No local account. Try registering or linking first.');
-        else if (errCode === 'invalid_email') setError('Invalid email address.');
-        else setError('Authentication failed. Please try again.');
+
+    if (mode === 'signup') {
+      if (password !== confirm) {
+        setError('Passwords do not match.');
         return;
       }
-      // Success: server session established; navigate home
-      navigate('/');
-    } catch (e) {
-      setError('Network error. Please try again.');
-    } finally {
-      setLoading(false);
+      // Minimal client-side signup simulation: store a user record in localStorage
+      setLoading(true);
+      try {
+        const users = JSON.parse(localStorage.getItem('hs_users') || '[]');
+        if (users.find(u => u.email === email)) {
+          setError('An account with that email already exists.');
+          setLoading(false);
+          return;
+        }
+        users.push({ email, password });
+        localStorage.setItem('hs_users', JSON.stringify(users));
+        // auto-login after signup
+        localStorage.setItem('hs_user', JSON.stringify({ email }));
+        navigate('/');
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      // login
+      setLoading(true);
+      try {
+        const users = JSON.parse(localStorage.getItem('hs_users') || '[]');
+        const user = users.find(u => u.email === email && u.password === password);
+        if (!user) {
+          setError('Invalid email or password.');
+          setLoading(false);
+          return;
+        }
+        localStorage.setItem('hs_user', JSON.stringify({ email }));
+        navigate('/');
+      } finally {
+        setLoading(false);
+      }
     }
   };
 

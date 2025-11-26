@@ -224,40 +224,22 @@ export default function ArtistPage() {
   };
 
   const handleDeleteArtistReview = async () => {
-    if (!artistId) return;
-    
-    if (!confirm('Are you sure you want to delete this review? This action cannot be undone.')) {
-      return;
-    }
-    
     try {
-      await deleteMyReview('artist', artistId);
-      
-      // Successfully deleted
-      setReviewText('');
-      setArtistRating(0);
-      setIsEditingReview(false);
-      setIsEditingRating(false);
-      setHasSavedReview(false);
-      setHasSavedRating(false);
-      alert('Your artist review was deleted.');
-    } catch (e) {
-      const errorMsg = String(e.message || e);
-      if (errorMsg.includes('unauthorized')) {
-        alert('Please sign in to delete your review.');
-      } else if (errorMsg.includes('review_not_found')) {
-        // Review was already deleted - still clear the UI
+      const deleted = await deleteMyReview('artist', artistId);
+      if (deleted) {
         setReviewText('');
         setArtistRating(0);
+        alert('Your artist review was deleted.');
         setIsEditingReview(false);
         setIsEditingRating(false);
         setHasSavedReview(false);
         setHasSavedRating(false);
-        alert('Review was already deleted.');
       } else {
-        alert('Failed to delete review. Please try again.');
-        console.error('Delete error:', e);
+        alert('No existing review to delete.');
       }
+    } catch (e) {
+      if (String(e.message).includes('unauthorized')) alert('Please sign in to delete your review.');
+      else alert('Failed to delete review.');
     }
   };
 
