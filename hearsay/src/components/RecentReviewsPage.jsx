@@ -73,9 +73,9 @@ export default function RecentReviewsPage() {
         <div className="flex-1 min-w-0 flex flex-col">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
             <div className="min-w-0 flex-1">
-              <p className="font-medium text-sm text-black dark:text-white truncate">{r.media?.title || r.oid}</p>
-              <p className="text-xs font-medium text-gray-700 dark:text-gray-300 truncate">{r.userName}</p>
-              <p className="text-[10px] text-gray-500 dark:text-gray-500">{new Date(r.createdAt).toLocaleDateString()}</p>
+              <p className="font-medium text-sm text-black dark:text-white whitespace-normal break-words">{r.media?.title || r.oid}</p>
+              <p className="text-xs font-medium text-gray-700 dark:text-gray-300 whitespace-normal break-words">{r.userName}</p>
+               <p className="text-[10px] text-gray-500 dark:text-gray-500">{new Date(r.createdAt).toLocaleDateString()}</p>
             </div>
 
             {/* Rating control: appears to the right on desktop, below title on mobile */}
