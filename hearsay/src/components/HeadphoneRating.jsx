@@ -8,16 +8,17 @@ export default function HeadphoneRating({ value = 0, onChange, size = 'large' })
   const headphoneDisplayValue = value > 0 ? value : (hoverValue !== null ? hoverValue : value);
   const boxDisplayValue = value > 0 ? value : (hoverValue !== null ? hoverValue : value);
   
+  // Larger icons but tighter visual spacing
   const sizeClasses = {
-    small: 'w-5 h-5',
-    medium: 'w-8 h-8',
-    large: 'w-12 h-12'
+    small: 'w-6 h-6',
+    medium: 'w-10 h-10',
+    large: 'w-14 h-14'
   };
 
   const boxSizeClasses = {
-    small: 'text-xs px-2 py-1 min-w-[2.5rem]',
-    medium: 'text-sm px-3 py-1 min-w-[3rem]',
-    large: 'text-base px-4 py-2 min-w-[3.5rem]'
+    small: 'text-xs px-2 py-1 min-w-[2rem] max-w-[3rem]',
+    medium: 'text-sm px-3 py-1 min-w-[2.25rem] max-w-[3.25rem]',
+    large: 'text-base px-3 py-2 min-w-[2.5rem] max-w-[4rem]'
   };
 
   // Determine box styling based on whether a rating has been selected
@@ -101,8 +102,9 @@ export default function HeadphoneRating({ value = 0, onChange, size = 'large' })
   };
 
   return (
-    <div className="flex items-center gap-3 w-full" role="group" aria-label={`Rating control, current ${Number(boxDisplayValue).toFixed(1)} out of 5`}>
-      <div className="flex gap-2" onMouseLeave={handleMouseLeave}>
+    <div className="flex items-center gap-2 w-full" role="group" aria-label={`Rating control, current ${Number(boxDisplayValue).toFixed(1)} out of 5`}>
+      {/* headphone icons: tighter gap, allow shrink to avoid overflow on small screens */}
+      <div className="flex gap-1 items-center" onMouseLeave={handleMouseLeave}>
         {[0, 1, 2, 3, 4].map((index) => {
           const rating = index + 1;
           
@@ -111,7 +113,8 @@ export default function HeadphoneRating({ value = 0, onChange, size = 'large' })
               key={index}
               type="button"
               aria-label={`Rate ${rating} ${rating === 1 ? 'star' : 'stars'}`}
-              className={`${sizeClasses[size]} cursor-pointer flex items-center justify-center`}
+              // override global min-width with min-w-0 so these can compress on narrow screens
+              className={`${sizeClasses[size]} cursor-pointer flex items-center justify-center min-w-0`}
               onMouseMove={(e) => handleMouseMove(index, e)}
               onClick={(e) => {
                 const rect = e.currentTarget.getBoundingClientRect();
@@ -127,8 +130,13 @@ export default function HeadphoneRating({ value = 0, onChange, size = 'large' })
         })}
       </div>
 
-      {/* Rating Display Box */}
-      <div className={`border-2 border-black dark:border-white ${boxColorClasses} ${boxSizeClasses[size]} font-medium text-center ml-auto`} aria-hidden="true">
+      {/* Rating Display Box: responsive, small max width, don't push layout */}
+      <div
+        className={`border-2 border-black dark:border-white ${boxColorClasses} ${boxSizeClasses[size]} font-medium text-center ml-2 flex-shrink-0 truncate`}
+        style={{ lineHeight: 1.2 }}
+        aria-hidden="true"
+        title={`${Number(boxDisplayValue).toFixed(1)}/5`}
+      >
         {Number(boxDisplayValue).toFixed(1)}/5
       </div>
     </div>

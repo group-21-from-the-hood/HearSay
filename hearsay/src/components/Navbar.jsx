@@ -19,8 +19,8 @@ export default function Navbar() {
           </div>
           <div className="flex-1 flex items-center justify-center sm:items-stretch sm:justify-start">
             <div className="flex-shrink-0">
-              <Link to="/" className="text-xl font-bold text-gray-900">
-                HearSay
+              <Link to="/" className="text-xl font-bold">
+                <span className="text-black dark:text-white">HearSay</span>
               </Link>
             </div>
             <div className="hidden sm:block sm:ml-6">
