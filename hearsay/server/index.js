@@ -22,17 +22,59 @@ const SESSION_ROTATE_MS = parseInt(process.env.SESSION_ROTATE_MS || String(60 * 
 const MONGO_DB = process.env.MONGO_DB_NAME || process.env.VITE_MONGO_DB_NAME || 'HearSay';
 const SESSIONS_COLLECTION = process.env.SESSIONS_COLLECTION || 'expressSessions';
 
+// ---------------- Middleware & Utility Setup ----------------  //
+
 // Allow cookies from the frontend app
 app.use(cors({ origin: ORIGIN, credentials: true }));
 app.use(express.json());
 // Trust proxy when behind one (uncomment if deploying behind reverse proxy)
 // app.set('trust proxy', 1);
 
+// Start the server and listen on the specified port
+app.listen(PORT, () => {
+  console.log(`Google auth proxy listening on http://localhost:${PORT}`);
+});
+
+// Health check
+app.get('/', (req, res) => res.json({ ok: true }));
+
+
+// Simple request logging to help diagnose requests from the frontend (method, url, small body preview)
+app.use((req, res, next) => {
+  try {
+    const previewBody = req.body && Object.keys(req.body).length ? JSON.stringify(req.body).slice(0, 100) : '';
+    console.log('[SERVER] Incoming', req.method, req.originalUrl, previewBody ? `body=${previewBody}` : '');
+  } catch (e) {
+    console.log('[SERVER] Incoming', req.method, req.originalUrl);
+  }
+  next();
+});
+
+
+
+
+// ---------------- Database Initialization and Utility ---------------- //
+
 // Ensure DB is connected before wiring sessions so the store uses auth'd client
 await db.connectMongo().catch((err) => {
   console.error('[DB] Initial connection failed for sessions:', err);
   process.exit(1);
 });
+
+
+// DB connectivity test: attempts to connect and ping the database
+app.get('/api/test', async (req, res) => {
+  try {
+    await db.connectMongo();
+    const ping = await db.getDb().command({ ping: 1 });
+    console.log('[DB] Connection OK. Ping result:', ping);
+    return res.json({ ok: true, ping });
+  } catch (err) {
+    console.error('[DB] Connection FAILED:', err);
+    return res.status(500).json({ ok: false, error: String(err) });
+  }
+});
+
 
 // Try to ensure user uniqueness constraints; if this fails due to existing duplicates,
 // we'll log a helpful message but won't crash the server.
@@ -43,6 +85,11 @@ try {
   console.warn('[DB] Could not ensure user indexes (likely due to duplicates).', e?.message || e);
   console.warn('[DB] To fix duplicates, run: npm run db:dedupe-users');
 }
+
+
+
+
+// ---------------- Session Management ----------------  //
 
 // Sessions backed by MongoDB
 app.use(
@@ -70,6 +117,25 @@ app.use(
   })
 );
 
+
+// Returns the current authenticated user from the session
+app.get('/api/me', (req, res) => {
+  if (req.session?.user) return res.json({ authenticated: true, user: req.session.user });
+  return res.json({ authenticated: false });
+});
+
+
+// Destroy session (logout)
+app.post('/api/logout', (req, res) => {
+  if (!req.session) return res.json({ ok: true });
+  req.session.destroy(err => {
+    if (err) return res.status(500).json({ ok: false, error: String(err) });
+    res.clearCookie(SESSION_NAME);
+    return res.json({ ok: true });
+  });
+});
+
+
 // Rotate session id every SESSION_ROTATE_MS to mitigate fixation
 app.use((req, res, next) => {
   if (!req.session) return next();
@@ -89,19 +155,6 @@ app.use((req, res, next) => {
   }
 });
 
-// Simple request logging to help diagnose requests from the frontend (method, url, small body preview)
-app.use((req, res, next) => {
-  try {
-    const previewBody = req.body && Object.keys(req.body).length ? JSON.stringify(req.body).slice(0, 100) : '';
-    console.log('[SERVER] Incoming', req.method, req.originalUrl, previewBody ? `body=${previewBody}` : '');
-  } catch (e) {
-    console.log('[SERVER] Incoming', req.method, req.originalUrl);
-  }
-  next();
-});
-
-// Health check
-app.get('/', (req, res) => res.json({ ok: true }));
 
 // Session info endpoint: ensures a session exists and returns basic details
 app.get('/api/session', (req, res) => {
@@ -115,6 +168,12 @@ app.get('/api/session', (req, res) => {
   });
 });
 
+
+
+
+// ---------------- Google OAuth2 Endpoint ---------------- //
+
+// Exchange code for tokens and upsert user profile
 app.post('/api/auth/google/exchange', async (req, res) => {
   try {
     const { code, redirect_uri, code_verifier } = req.body;
@@ -251,21 +310,10 @@ app.post('/api/auth/google/exchange', async (req, res) => {
   }
 });
 
-// Returns the current authenticated user from the session
-app.get('/api/me', (req, res) => {
-  if (req.session?.user) return res.json({ authenticated: true, user: req.session.user });
-  return res.json({ authenticated: false });
-});
 
-// Destroy session (logout)
-app.post('/api/logout', (req, res) => {
-  if (!req.session) return res.json({ ok: true });
-  req.session.destroy(err => {
-    if (err) return res.status(500).json({ ok: false, error: String(err) });
-    res.clearCookie(SESSION_NAME);
-    return res.json({ ok: true });
-  });
-});
+
+
+// ---------------- Profile Endpoints ----------------  //
 
 // Current user's full profile from DB
 app.get('/api/profile', async (req, res) => {
@@ -299,186 +347,11 @@ app.get('/api/profile', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Google auth proxy listening on http://localhost:${PORT}`);
-});
 
-// DB connectivity test: attempts to connect and ping the database
-app.get('/api/test', async (req, res) => {
-  try {
-    await db.connectMongo();
-    const ping = await db.getDb().command({ ping: 1 });
-    console.log('[DB] Connection OK. Ping result:', ping);
-    return res.json({ ok: true, ping });
-  } catch (err) {
-    console.error('[DB] Connection FAILED:', err);
-    return res.status(500).json({ ok: false, error: String(err) });
-  }
-});
 
-// ---------------- Spotify Proxy Endpoints ----------------
-// All token handling stays server-side; client calls these endpoints.
-// Debug token cache endpoint to help diagnose credential issues
-app.get('/api/spotify/debug/token', async (req, res) => {
-  try {
-    // Attempt a lightweight request to ensure token validity
-    let probe = null;
-    try {
-      probe = await spotify.getNewReleases({ country: 'US', limit: 1 });
-    } catch (e) {
-      probe = { error: e?.message || String(e) };
-    }
-    const cache = spotify._debugTokenCache ? spotify._debugTokenCache() : {};
-    return res.json({ ok: true, cache, probe });
-  } catch (e) {
-    return res.status(500).json({ ok: false, error: e?.message || 'debug_failed' });
-  }
-});
-app.get('/api/spotify/search', async (req, res) => {
-  try {
-    const { q, type = 'track', limit, market } = req.query;
-    if (!q) return res.status(400).json({ ok: false, error: 'missing_query' });
-    const lim = limit ? parseInt(limit, 10) : 10;
-    const result = await spotify.search(q, type, lim, market);
-    if (result.error && !result.data) return res.status(result.status || 500).json({ ok: false, error: result.error });
-    return res.json({ ok: true, data: result.data });
-  } catch (e) {
-    console.error('[Spotify] search error', e);
-    return res.status(500).json({ ok: false, error: 'server_error', message: e?.message });
-  }
-});
 
-app.get('/api/spotify/track/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const result = await spotify.getTrack(id);
-    if (result.error && !result.data) return res.status(result.status || 500).json({ ok: false, error: result.error });
-    return res.json({ ok: true, data: result.data });
-  } catch (e) {
-    console.error('[Spotify] track error', e);
-    return res.status(500).json({ ok: false, error: 'server_error', message: e?.message });
-  }
-});
+// ---------------- Reviews Endpoints ---------------- //
 
-app.get('/api/spotify/album/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const result = await spotify.getAlbum(id);
-    if (result.error && !result.data) return res.status(result.status || 500).json({ ok: false, error: result.error });
-    return res.json({ ok: true, data: result.data });
-  } catch (e) {
-    console.error('[Spotify] album error', e);
-    return res.status(500).json({ ok: false, error: 'server_error', message: e?.message });
-  }
-});
-
-// Batch several tracks (up to 50 per Spotify request); chunks if more supplied
-app.get('/api/spotify/tracks', async (req, res) => {
-  try {
-    const idsParam = req.query.ids;
-    if (!idsParam) return res.status(400).json({ ok: false, error: 'missing_ids' });
-    const market = req.query.market;
-    const allIds = String(idsParam).split(',').map(s => s.trim()).filter(Boolean);
-    if (!allIds.length) return res.status(400).json({ ok: false, error: 'no_ids' });
-    const responses = [];
-    for (let i = 0; i < allIds.length; i += 50) {
-      const chunk = allIds.slice(i, i + 50);
-      const r = await spotify.getSeveralTracks(chunk, market);
-      if (r.error && !r.data) return res.status(r.status || 500).json({ ok: false, error: r.error });
-      const tracks = Array.isArray(r.data?.tracks) ? r.data.tracks : [];
-      responses.push(...tracks);
-    }
-    return res.json({ ok: true, data: { tracks: responses } });
-  } catch (e) {
-    console.error('[Spotify] several tracks error', e);
-    return res.status(500).json({ ok: false, error: 'server_error' });
-  }
-});
-
-// Batch several albums (up to 20 per Spotify request); accepts any number by chunking
-app.get('/api/spotify/albums', async (req, res) => {
-  try {
-    const idsParam = req.query.ids;
-    if (!idsParam) return res.status(400).json({ ok: false, error: 'missing_ids' });
-    const market = req.query.market;
-    const allIds = String(idsParam)
-      .split(',')
-      .map(s => s.trim())
-      .filter(Boolean);
-    if (!allIds.length) return res.status(400).json({ ok: false, error: 'no_ids' });
-
-    // Chunk to 20 per Spotify API limitations
-    const chunks = [];
-    for (let i = 0; i < allIds.length; i += 20) chunks.push(allIds.slice(i, i + 20));
-
-    const responses = [];
-    for (const chunk of chunks) {
-      const r = await spotify.getSeveralAlbums(chunk, market);
-      if (r.error && !r.data) return res.status(r.status || 500).json({ ok: false, error: r.error });
-      const albums = Array.isArray(r.data?.albums) ? r.data.albums : [];
-      responses.push(...albums);
-    }
-    return res.json({ ok: true, data: { albums: responses } });
-  } catch (e) {
-    console.error('[Spotify] several albums error', e);
-    return res.status(500).json({ ok: false, error: 'server_error' });
-  }
-});
-
-app.get('/api/spotify/artist/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const result = await spotify.getArtist(id);
-    if (result.error && !result.data) return res.status(result.status || 500).json({ ok: false, error: result.error });
-    return res.json({ ok: true, data: result.data });
-  } catch (e) {
-    console.error('[Spotify] artist error', e);
-    return res.status(500).json({ ok: false, error: 'server_error', message: e?.message });
-  }
-});
-
-app.get('/api/spotify/artist/:id/albums', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { include_groups = 'album,single', limit = 50, market } = req.query;
-    const result = await spotify.getArtistAlbums(id, { include_groups, limit: parseInt(limit, 10) || 50, market });
-    if (result.error && !result.data) return res.status(result.status || 500).json({ ok: false, error: result.error });
-    return res.json({ ok: true, data: result.data });
-  } catch (e) {
-    console.error('[Spotify] artist albums error', e);
-    return res.status(500).json({ ok: false, error: 'server_error', message: e?.message });
-  }
-});
-
-app.get('/api/spotify/new-releases', async (req, res) => {
-  try {
-    const { country = 'US', limit = 50 } = req.query;
-    const result = await spotify.getNewReleases({ country, limit: parseInt(limit, 10) || 50 });
-    if (result.error && !result.data) return res.status(result.status || 500).json({ ok: false, error: result.error });
-    return res.json({ ok: true, data: result.data });
-  } catch (e) {
-    console.error('[Spotify] new releases error', e);
-    return res.status(500).json({ ok: false, error: 'server_error', message: e?.message });
-  }
-});
-
-app.get('/api/spotify/recommendations', async (req, res) => {
-  try {
-    const params = { ...req.query };
-    // Provide default seeds if none supplied to avoid API error
-    if (!params.seed_genres && !params.seed_artists && !params.seed_tracks) {
-      params.seed_genres = 'pop,rock';
-    }
-    const result = await spotify.getRecommendations(params);
-    if (result.error && !result.data) return res.status(result.status || 500).json({ ok: false, error: result.error });
-    return res.json({ ok: true, data: result.data });
-  } catch (e) {
-    console.error('[Spotify] recommendations error', e);
-    return res.status(500).json({ ok: false, error: 'server_error' });
-  }
-});
-
-// ---------------- Reviews Endpoints ----------------
 // Upsert a review for the current user and item (song/album/artist)
 app.post('/api/reviews/upsert', async (req, res) => {
   try {
@@ -1346,6 +1219,7 @@ app.post('/api/reviews/upsert', async (req, res) => {
   }
 });
 
+
 // Delete current user's review for an item and remove from user profile list
 app.delete('/api/reviews/my', async (req, res) => {
   try {
@@ -1407,6 +1281,7 @@ app.delete('/api/reviews/my', async (req, res) => {
   }
 });
 
+
 // Get current user's review for an item
 app.get('/api/reviews/my', async (req, res) => {
   try {
@@ -1425,6 +1300,7 @@ app.get('/api/reviews/my', async (req, res) => {
     return res.status(500).json({ ok: false, error: 'server_error' });
   }
 });
+
 
 // List current user's reviews (paginated) with media metadata
 app.get('/api/reviews/my/list', async (req, res) => {
@@ -1533,6 +1409,7 @@ app.get('/api/reviews/my/list', async (req, res) => {
   }
 });
 
+
 // Top rated songs for an artist (avg rating desc, then review count desc)
 app.get('/api/reviews/top-songs-for-artist', async (req, res) => {
   try {
@@ -1583,7 +1460,11 @@ app.get('/api/reviews/top-songs-for-artist', async (req, res) => {
   }
 });
 
-// ---------------- App Data: Artists ----------------
+
+
+
+// ---------------- Stored Media Endpoints ---------------- //
+
 // Return saved artist document if present (prefer this before hitting Spotify)
 app.get('/api/artists/:id', async (req, res) => {
   try {
@@ -1599,6 +1480,7 @@ app.get('/api/artists/:id', async (req, res) => {
   }
 });
 
+
 // Return saved album document if present (prefer this before hitting Spotify)
 app.get('/api/albums/:id', async (req, res) => {
   try {
@@ -1610,6 +1492,190 @@ app.get('/api/albums/:id', async (req, res) => {
     return res.json({ ok: true, data: album || null });
   } catch (e) {
     console.error('[Albums] get saved album error', e);
+    return res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
+
+
+
+// ---------------- Spotify Proxy Endpoints ---------------- //
+
+// All token handling stays server-side; client calls these endpoints.
+
+// Debug token cache endpoint to help diagnose credential issues
+app.get('/api/spotify/debug/token', async (req, res) => {
+  try {
+    // Attempt a lightweight request to ensure token validity
+    let probe = null;
+    try {
+      probe = await spotify.getNewReleases({ country: 'US', limit: 1 });
+    } catch (e) {
+      probe = { error: e?.message || String(e) };
+    }
+    const cache = spotify._debugTokenCache ? spotify._debugTokenCache() : {};
+    return res.json({ ok: true, cache, probe });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e?.message || 'debug_failed' });
+  }
+});
+
+
+// Search Spotify for tracks, albums, artists, etc.
+app.get('/api/spotify/search', async (req, res) => {
+  try {
+    const { q, type = 'track', limit, market } = req.query;
+    if (!q) return res.status(400).json({ ok: false, error: 'missing_query' });
+    const lim = limit ? parseInt(limit, 10) : 10;
+    const result = await spotify.search(q, type, lim, market);
+    if (result.error && !result.data) return res.status(result.status || 500).json({ ok: false, error: result.error });
+    return res.json({ ok: true, data: result.data });
+  } catch (e) {
+    console.error('[Spotify] search error', e);
+    return res.status(500).json({ ok: false, error: 'server_error', message: e?.message });
+  }
+});
+
+
+// Get a single track by ID
+app.get('/api/spotify/track/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await spotify.getTrack(id);
+    if (result.error && !result.data) return res.status(result.status || 500).json({ ok: false, error: result.error });
+    return res.json({ ok: true, data: result.data });
+  } catch (e) {
+    console.error('[Spotify] track error', e);
+    return res.status(500).json({ ok: false, error: 'server_error', message: e?.message });
+  }
+});
+
+
+// Get a single album by ID
+app.get('/api/spotify/album/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await spotify.getAlbum(id);
+    if (result.error && !result.data) return res.status(result.status || 500).json({ ok: false, error: result.error });
+    return res.json({ ok: true, data: result.data });
+  } catch (e) {
+    console.error('[Spotify] album error', e);
+    return res.status(500).json({ ok: false, error: 'server_error', message: e?.message });
+  }
+});
+
+
+// Batch several tracks (up to 50 per Spotify request); chunks if more supplied
+app.get('/api/spotify/tracks', async (req, res) => {
+  try {
+    const idsParam = req.query.ids;
+    if (!idsParam) return res.status(400).json({ ok: false, error: 'missing_ids' });
+    const market = req.query.market;
+    const allIds = String(idsParam).split(',').map(s => s.trim()).filter(Boolean);
+    if (!allIds.length) return res.status(400).json({ ok: false, error: 'no_ids' });
+    const responses = [];
+    for (let i = 0; i < allIds.length; i += 50) {
+      const chunk = allIds.slice(i, i + 50);
+      const r = await spotify.getSeveralTracks(chunk, market);
+      if (r.error && !r.data) return res.status(r.status || 500).json({ ok: false, error: r.error });
+      const tracks = Array.isArray(r.data?.tracks) ? r.data.tracks : [];
+      responses.push(...tracks);
+    }
+    return res.json({ ok: true, data: { tracks: responses } });
+  } catch (e) {
+    console.error('[Spotify] several tracks error', e);
+    return res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
+
+// Batch several albums (up to 20 per Spotify request); accepts any number by chunking
+app.get('/api/spotify/albums', async (req, res) => {
+  try {
+    const idsParam = req.query.ids;
+    if (!idsParam) return res.status(400).json({ ok: false, error: 'missing_ids' });
+    const market = req.query.market;
+    const allIds = String(idsParam)
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean);
+    if (!allIds.length) return res.status(400).json({ ok: false, error: 'no_ids' });
+
+    // Chunk to 20 per Spotify API limitations
+    const chunks = [];
+    for (let i = 0; i < allIds.length; i += 20) chunks.push(allIds.slice(i, i + 20));
+
+    const responses = [];
+    for (const chunk of chunks) {
+      const r = await spotify.getSeveralAlbums(chunk, market);
+      if (r.error && !r.data) return res.status(r.status || 500).json({ ok: false, error: r.error });
+      const albums = Array.isArray(r.data?.albums) ? r.data.albums : [];
+      responses.push(...albums);
+    }
+    return res.json({ ok: true, data: { albums: responses } });
+  } catch (e) {
+    console.error('[Spotify] several albums error', e);
+    return res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
+
+// Get a single artist by ID
+app.get('/api/spotify/artist/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await spotify.getArtist(id);
+    if (result.error && !result.data) return res.status(result.status || 500).json({ ok: false, error: result.error });
+    return res.json({ ok: true, data: result.data });
+  } catch (e) {
+    console.error('[Spotify] artist error', e);
+    return res.status(500).json({ ok: false, error: 'server_error', message: e?.message });
+  }
+});
+
+
+// Get artist's albums
+app.get('/api/spotify/artist/:id/albums', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { include_groups = 'album,single', limit = 50, market } = req.query;
+    const result = await spotify.getArtistAlbums(id, { include_groups, limit: parseInt(limit, 10) || 50, market });
+    if (result.error && !result.data) return res.status(result.status || 500).json({ ok: false, error: result.error });
+    return res.json({ ok: true, data: result.data });
+  } catch (e) {
+    console.error('[Spotify] artist albums error', e);
+    return res.status(500).json({ ok: false, error: 'server_error', message: e?.message });
+  }
+});
+
+
+// Get new releases
+app.get('/api/spotify/new-releases', async (req, res) => {
+  try {
+    const { country = 'US', limit = 50 } = req.query;
+    const result = await spotify.getNewReleases({ country, limit: parseInt(limit, 10) || 50 });
+    if (result.error && !result.data) return res.status(result.status || 500).json({ ok: false, error: result.error });
+    return res.json({ ok: true, data: result.data });
+  } catch (e) {
+    console.error('[Spotify] new releases error', e);
+    return res.status(500).json({ ok: false, error: 'server_error', message: e?.message });
+  }
+});
+
+
+// Get recommendations based on seeds
+app.get('/api/spotify/recommendations', async (req, res) => {
+  try {
+    const params = { ...req.query };
+    // Provide default seeds if none supplied to avoid API error
+    if (!params.seed_genres && !params.seed_artists && !params.seed_tracks) {
+      params.seed_genres = 'pop,rock';
+    }
+    const result = await spotify.getRecommendations(params);
+    if (result.error && !result.data) return res.status(result.status || 500).json({ ok: false, error: result.error });
+    return res.json({ ok: true, data: result.data });
+  } catch (e) {
+    console.error('[Spotify] recommendations error', e);
     return res.status(500).json({ ok: false, error: 'server_error' });
   }
 });
