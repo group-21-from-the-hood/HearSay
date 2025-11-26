@@ -457,35 +457,41 @@ export default function AlbumRatingPage() {
                   {tracks.map((track) => (
                     <div
                       key={track.id}
-                      className="grid grid-cols-[auto_1fr_auto] items-start gap-x-2 py-1 border-b border-black dark:border-white last:border-0"
+                      /* single column on mobile so elements stack; compact 3-col on sm+ */
+                      className="grid grid-cols-1 sm:grid-cols-[auto_1fr_auto] items-start gap-x-2 gap-y-2 py-3 sm:py-1 border-b border-black dark:border-white last:border-0 min-h-[4.25rem] sm:min-h-0"
                     >
-                      {/* Track number (increased left padding) */}
-                      <div className="text-right text-gray-500 dark:text-gray-400 text-sm pr-1 pl-2">
+                      {/* Track number */}
+                      <div className="text-right text-gray-500 dark:text-gray-400 text-sm pr-1 pl-2 sm:order-1">
                         {track.trackNumber}
                       </div>
 
-                      {/* Title + rating underneath */}
-                      <div className="min-w-0 pl-3">
+                      {/* Title */}
+                      <div className="min-w-0 pl-3 sm:order-2">
                         <Link
                           to={`/song/${track.id}`}
                           className="block text-sm truncate text-black dark:text-white hover:underline"
                         >
                           {track.name}
                         </Link>
-                        <div className="mt-1">
-                          {/* showBox + compact ensures a small numeric preview appears and fits the narrow column */}
+                      </div>
+
+                      {/* Rating control: placed in its own cell so on mobile (grid-cols-1) it appears beneath the title.
+                          Use mt on mobile via default gap-y; on sm+ it stays aligned to the right column area. */}
+                      <div className="sm:order-3 sm:col-auto sm:flex sm:items-center sm:justify-end mt-0">
+                        <div className="mt-2 sm:mt-0">
                           <HeadphoneRating
                             size="small"
                             value={trackRatings[track.id] || 0}
                             onChange={(rating) => handleTrackRating(track.id, rating)}
                             showBox={true}
                             compact={true}
+                            /* stackOnSmall default for small size will stack icons above number if needed */
                           />
                         </div>
                       </div>
 
                       {/* Duration */}
-                      <div className="text-right text-gray-500 dark:text-gray-400 text-xs pr-1">
+                      <div className="text-right text-gray-500 dark:text-gray-400 text-xs pr-1 sm:order-4">
                         {formatDuration(track.duration)}
                       </div>
                     </div>

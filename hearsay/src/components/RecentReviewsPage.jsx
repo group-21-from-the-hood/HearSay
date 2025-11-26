@@ -68,18 +68,22 @@ export default function RecentReviewsPage() {
             <div className="w-full h-full flex items-center justify-center text-gray-500 dark:text-gray-400 text-xs">No Image</div>
           )}
         </div>
-        {/* Right: Content */}
+
+        {/* Right: Content — stack on mobile so rating moves under title */}
         <div className="flex-1 min-w-0 flex flex-col">
-          <div className="flex items-start justify-between gap-2">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
             <div className="min-w-0 flex-1">
               <p className="font-medium text-sm text-black dark:text-white truncate">{r.media?.title || r.oid}</p>
               <p className="text-xs font-medium text-gray-700 dark:text-gray-300 truncate">{r.userName}</p>
               <p className="text-[10px] text-gray-500 dark:text-gray-500">{new Date(r.createdAt).toLocaleDateString()}</p>
             </div>
-            <div className="flex-shrink-0 pointer-events-none">
-              <HeadphoneRating value={r.rating} onChange={() => {}} size="small" />
+
+            {/* Rating control: appears to the right on desktop, below title on mobile */}
+            <div className="mt-2 sm:mt-0 flex-shrink-0 pointer-events-none">
+              <HeadphoneRating value={r.rating} onChange={() => {}} size="small" showBox={true} compact={false} stackOnSmall={true} />
             </div>
           </div>
+
           {/* Review text area with dynamic height & scroll */}
           <div className="mt-1 relative">
             {r.text ? (

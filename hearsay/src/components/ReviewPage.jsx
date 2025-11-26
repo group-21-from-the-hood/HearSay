@@ -101,60 +101,83 @@ export default function ReviewPage() {
 
   return (
     <main className="container mx-auto px-4 py-8">
-      <div className="max-w-3xl mx-auto">
-        <div className="border-2 border-black dark:border-white bg-white dark:bg-gray-900 overflow-hidden">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-6">
-            {/* Media Info */}
-            <div className="md:col-span-1">
-              <Link to={review.media?.route || '#'} className="block group">
-                <div className="aspect-square border-2 border-black dark:border-white bg-gray-100 dark:bg-gray-800 overflow-hidden mb-3">
-                  {review.media?.coverArt ? (
-                    <img src={review.media.coverArt} alt={review.media?.title || review.oid} className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-500 dark:text-gray-400">No Image</div>
-                  )}
-                </div>
-                <p className="font-medium text-black dark:text-white group-hover:underline">{review.media?.title || review.oid}</p>
-                <p className="text-sm text-gray-600 dark:text-gray-400 capitalize">{review.type}</p>
-              </Link>
+      <div className="max-w-4xl mx-auto">
+        <div className="border-2 border-black dark:border-white bg-white dark:bg-gray-900 overflow-hidden p-4">
+          <div className="flex gap-4 items-start">
+            {/* Cover Art */}
+            <div className="w-28 h-28 sm:w-32 sm:h-32 flex-shrink-0 border-2 border-black dark:border-white overflow-hidden">
+              {review.media?.coverArt ? (
+                <img src={review.media.coverArt} alt={review.media?.title || review.oid} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-gray-500 dark:text-gray-400">No Image</div>
+              )}
             </div>
 
-            {/* Review Content */}
-            <div className="md:col-span-2">
-              <div className="mb-4">
-                <div className="flex items-center justify-between mb-2">
-                  <div>
-                    <p className="font-medium text-black dark:text-white">{review.userName}</p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {new Date(review.createdAt).toLocaleDateString()} at {new Date(review.createdAt).toLocaleTimeString()}
-                    </p>
+            {/* Right column: title, icons, big number, date, text */}
+            <div className="flex-1">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between">
+                <div className="min-w-0 pr-4">
+                  <h2 className="text-sm sm:text-base uppercase tracking-wide font-semibold text-black dark:text-white leading-tight">
+                    {review.media?.title || review.oid}
+                  </h2>
+
+                  {/* Desktop: small inline icons (no numeric) shown next to title; hidden on mobile */}
+                  <div className="hidden sm:flex mt-2 items-center gap-3 pointer-events-none">
+                    <HeadphoneRating
+                      value={review.rating}
+                      onChange={() => {}}
+                      size="medium"
+                      showBox={false}
+                      compact={false}
+                    />
                   </div>
-                  <div>
-                    {editMode && review.canEdit ? (
-                      <HeadphoneRating value={formRating} onChange={v => setFormRating(v)} size="medium" />
-                    ) : (
-                      <div className="pointer-events-none">
-                        <HeadphoneRating value={review.rating} onChange={() => {}} size="medium" />
-                      </div>
-                    )}
+
+                  {/* Mobile: stacked rating (icons above numeric) shown below the title */}
+                  <div className="block sm:hidden mt-2">
+                    <HeadphoneRating
+                      value={review.rating}
+                      onChange={() => {}}
+                      size="small"
+                      showBox={true}
+                      boxSizeOverride="medium"
+                      compact={false}
+                      stackOnSmall={true}
+                    />
                   </div>
                 </div>
+
+                {/* Desktop-only large numeric preview on the right (hidden on small screens) */}
+                <div className="ml-0 sm:ml-4 flex-shrink-0 hidden sm:flex">
+                  <HeadphoneRating
+                    value={review.rating}
+                    onChange={() => {}}
+                    size="large"
+                    showBox={true}
+                    boxSizeOverride="large"
+                    compact={false}
+                  />
+                </div>
               </div>
-              <div className="border-t-2 border-black dark:border-white pt-4 space-y-4">
+
+              {/* Date */}
+              <div className="mt-2 text-xs text-gray-600 dark:text-gray-400">
+                {new Date(review.createdAt || review.updatedAt || Date.now()).toLocaleString()}
+              </div>
+
+              {/* Review text */}
+              <div className="mt-3">
                 {editMode && review.canEdit ? (
                   <>
                     <textarea
                       value={formText}
                       onChange={e => setFormText(e.target.value)}
-                      rows={8}
+                      rows={6}
                       maxLength={8000}
                       className="w-full border-2 border-black dark:border-white bg-white dark:bg-gray-800 text-black dark:text-white p-3 text-sm"
                       placeholder="Update your review text"
                     />
-                    {saveError && (
-                      <div className="text-red-600 dark:text-red-400 text-sm">{saveError}</div>
-                    )}
-                    <div className="flex gap-3 flex-wrap">
+                    {saveError && <div className="text-red-600 dark:text-red-400 text-sm mt-2">{saveError}</div>}
+                    <div className="mt-3 flex gap-3">
                       <button
                         disabled={saving}
                         onClick={saveEdit}
@@ -175,10 +198,10 @@ export default function ReviewPage() {
                   )
                 )}
                 {!editMode && review.canEdit && (
-                  <div>
+                  <div className="mt-3">
                     <button
                       onClick={beginEdit}
-                      className="mt-2 px-4 py-2 border-2 border-black dark:border-white bg-white dark:bg-gray-900 text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800"
+                      className="px-4 py-2 border-2 border-black dark:border-white bg-white dark:bg-gray-900 text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800"
                     >Edit Review</button>
                   </div>
                 )}

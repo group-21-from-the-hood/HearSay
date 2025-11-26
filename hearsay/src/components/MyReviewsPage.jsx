@@ -270,130 +270,25 @@ const MyReviewsPage = () => {
                   </div>
                   {/* make the review panel taller on small screens so text fits */}
                   <div className="sm:col-span-2 border-2 border-black dark:border-white p-3 min-h-[12rem] sm:min-h-0">
-                    <div className="flex items-center justify-between mb-3">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-3">
                       <p className="text-sm text-gray-600 dark:text-gray-400">Updated {new Date(r.updatedAt || r.createdAt).toLocaleString()}</p>
-                      <div className="flex items-center gap-2">
-                        {/* stackOnSmall makes the numeric preview sit under the icons on mobile */}
-                        <HeadphoneRating
-                          value={ratingDraft[r.id] ?? (Number(r.rating) || 0)}
-                          onChange={(val) => setRatingDraft(prev => ({ ...prev, [r.id]: val }))}
-                          size="small"
-                          showBox={true}      // always show numeric preview
-                          compact={false}     // show "/5" for clarity
-                          stackOnSmall={true} // stack icons above the number on small screens
-                        />
-                        <button
-                          disabled={saving[r.id] === 'rating'}
-                          onClick={() => handleUpdateRating(r.id)}
-                          className="border-2 border-black dark:border-white px-3 py-1 bg-white dark:bg-gray-900 text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-60"
-                        >
-                          {saving[r.id] === 'rating' ? 'Saving…' : 'Update Rating'}
-                        </button>
-                      </div>
-                    </div>
-
-                    {!editOpen[r.id] ? (
-                      <>
-                        {r.text ? (
-                          <p className="whitespace-pre-wrap text-black dark:text-white">{r.text}</p>
-                        ) : (
-                          <p className="text-gray-600 dark:text-gray-400 italic">No review text</p>
-                        )}
-                        <div className="mt-3 flex gap-2">
-                          <button
-                            onClick={() => handleToggleEdit(r.id, r.text)}
-                            className="border-2 border-black dark:border-white px-3 py-1 bg-white dark:bg-gray-900 text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800"
-                          >
-                            Edit Review
-                          </button>
-                          <button
-                            onClick={() => handleDeleteReview(r.id)}
-                            className="border-2 border-red-600 dark:border-red-500 px-3 py-1 bg-white dark:bg-gray-900 text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <div className="relative">
-                          <textarea
-                            value={textDraft[r.id] || ''}
-                            onChange={(e) => handleTextChange(r.id, e.target.value)}
-                            className="w-full h-28 border-2 border-black dark:border-white bg-white dark:bg-gray-800 text-black dark:text-white p-2 pb-6 resize-none"
-                            placeholder="Update your review..."
-                            maxLength={10000}
-                          />
-                          <div className="absolute bottom-2 right-2 text-xs italic text-gray-500 dark:text-gray-400">
-                            {(() => {
-                              const words = String(textDraft[r.id] || '').trim().split(/\s+/).filter(Boolean).length;
-                              const remaining = 1000 - words;
-                              return `${remaining} ${remaining === 1 ? 'word' : 'words'} remaining`;
-                            })()}
-                          </div>
-                        </div>
-                        <div className="mt-3 flex gap-2">
-                          <button
-                            disabled={saving[r.id] === 'text'}
-                            onClick={() => handleSaveReview(r.id)}
-                            className="border-2 border-black dark:border-white px-3 py-1 bg-white dark:bg-gray-900 text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-60"
-                          >
-                            {saving[r.id] === 'text' ? 'Saving…' : 'Save Review'}
-                          </button>
-                          <button
-                            onClick={() => { setEditOpen(prev => ({ ...prev, [r.id]: false })); setTextDraft(prev => ({ ...prev, [r.id]: r.text || '' })); }}
-                            className="border-2 border-gray-400 dark:border-gray-500 px-3 py-1 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </div>
-                {r.type === 'album' && r.trackRatings && Object.keys(r.trackRatings).length > 0 && (
-                  <div className="mt-4">
-                    <button
-                      onClick={() => toggleExpandReview(r.id)}
-                      className="text-sm text-blue-500 dark:text-blue-400 hover:underline"
-                    >
-                      {expandedReviewId === r.id ? 'Hide Track Ratings' : 'Show Track Ratings'}
-                    </button>
-                    {expandedReviewId === r.id && (
-                      <div className="mt-4 border-t-2 border-black dark:border-white pt-4">
-                        <h3 className="font-semibold mb-2 text-black dark:text-white">Track Ratings</h3>
-                        <div className="space-y-2">
-                          {Object.entries(r.trackRatings).map(([trackId, rating]) => (
-                            <div key={trackId} className="flex items-center justify-between">
-                              <span className="text-sm text-gray-600 dark:text-gray-400">Track {trackId}</span>
-                              <span className="text-sm text-black dark:text-white">{rating}/5</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-          <div className="mt-6 flex justify-center">
-            {nextOffset !== null ? (
-              <button
-                disabled={loading}
-                onClick={loadMore}
-                className="px-4 py-2 border-2 border-black dark:border-white bg-white dark:bg-gray-900 text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-60"
-              >
-                {loading ? 'Loading…' : 'Load More'}
-              </button>
-            ) : (
-              <p className="text-gray-600 dark:text-gray-400">End of results</p>
-            )}
-          </div>
-        </>
-      )}
-    </main>
-  );
-};
-
-export default MyReviewsPage;
++
++                      <div className="mt-2 sm:mt-0 flex items-center gap-2">
++                        {/* rating control: will appear under title on mobile because the panel is stacked */}
++                        <HeadphoneRating
++                          value={ratingDraft[r.id] ?? (Number(r.rating) || 0)}
++                          onChange={(val) => setRatingDraft(prev => ({ ...prev, [r.id]: val }))}
++                          size="small"
++                          showBox={true}
++                          compact={false}
++                          stackOnSmall={true}
++                        />
++                        <button
++                          disabled={saving[r.id] === 'rating'}
++                          onClick={() => handleUpdateRating(r.id)}
++                          className="border-2 border-black dark:border-white px-3 py-1 bg-white dark:bg-gray-900 text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-60"
++                        >
++                          {saving[r.id] === 'rating' ? 'Saving…' : 'Update Rating'}
++                        </button>
++                      </div>
+                    
