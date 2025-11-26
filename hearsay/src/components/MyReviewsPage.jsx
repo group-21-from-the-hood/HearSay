@@ -268,14 +268,19 @@ const MyReviewsPage = () => {
                       </div>
                     </Link>
                   </div>
-                  <div className="sm:col-span-2 border-2 border-black dark:border-white p-3">
+                  {/* make the review panel taller on small screens so text fits */}
+                  <div className="sm:col-span-2 border-2 border-black dark:border-white p-3 min-h-[12rem] sm:min-h-0">
                     <div className="flex items-center justify-between mb-3">
                       <p className="text-sm text-gray-600 dark:text-gray-400">Updated {new Date(r.updatedAt || r.createdAt).toLocaleString()}</p>
                       <div className="flex items-center gap-2">
+                        {/* stackOnSmall makes the numeric preview sit under the icons on mobile */}
                         <HeadphoneRating
                           value={ratingDraft[r.id] ?? (Number(r.rating) || 0)}
                           onChange={(val) => setRatingDraft(prev => ({ ...prev, [r.id]: val }))}
                           size="small"
+                          showBox={true}      // always show numeric preview
+                          compact={false}     // show "/5" for clarity
+                          stackOnSmall={true} // stack icons above the number on small screens
                         />
                         <button
                           disabled={saving[r.id] === 'rating'}

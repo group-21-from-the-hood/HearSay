@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-export default function HeadphoneRating({ value = 0, onChange, size = 'large', showBox, compact = false, boxSizeOverride }) {
+export default function HeadphoneRating({ value = 0, onChange, size = 'large', showBox, compact = false, boxSizeOverride, stackOnSmall = false }) {
   const [hoverValue, setHoverValue] = useState(null);
   
   // If a rating is selected (value > 0), don't show hover preview
@@ -15,17 +15,19 @@ export default function HeadphoneRating({ value = 0, onChange, size = 'large', s
     large: 'w-10 h-10'
   };
 
-  // numeric box sizes (applied for medium/large and small when explicitly shown)
+  // numeric box sizes (uniform padding + rounded corners so previews scale predictably)
   const boxSizeClasses = {
-    // increased small size to avoid clipping in narrow tracklist columns
-    small: 'text-sm px-1.5 py-0.5 min-w-[1.75rem] max-w-[2.5rem]',
-    medium: 'text-sm px-2 py-0.5 min-w-[1.75rem] max-w-[2.75rem]',
-    large: 'text-base px-3 py-1 min-w-[2.5rem] max-w-[4rem]'
+    // small used for track-level compact previews (slightly larger than icon size)
+    small: 'text-sm px-2 py-1 min-w-[2rem] max-w-[3rem] rounded',
+    // medium for in-context album/song controls
+    medium: 'text-base px-3 py-1.5 min-w-[2.5rem] max-w-[3.5rem] rounded',
+    // large used for forced album-level preview (readable + roomy)
+    large: 'text-lg px-4 py-2 min-w-[3rem] max-w-[6rem] rounded'
   };
 
-  // Enhanced compact class used when compact preview is requested;
-  // larger min-width and font so the numeric value does not get cut off.
-  const compactSmallBoxClass = 'text-base px-2 py-0.5 min-w-[2.25rem] max-w-[3rem] font-semibold';
+  // When compact preview is requested for track list, use a slightly larger compact class
+  // to keep the number readable while remaining visually compact.
+  const compactSmallBoxClass = 'text-base px-3 py-1.5 min-w-[2.5rem] max-w-[3.5rem] font-semibold rounded';
 
   // Determine box styling based on whether a rating has been selected
   const boxColorClasses = value > 0
@@ -106,8 +108,12 @@ export default function HeadphoneRating({ value = 0, onChange, size = 'large', s
   };
 
   return (
-    // Keep outer container flexible but allow the icon group to NOT grow and the number box to sit at the end
-    <div className="flex items-center gap-1 w-full" role="group" aria-label={`Rating control, current ${Number(boxDisplayValue).toFixed(1)} out of 5`}>
+    // Keep outer container flexible; optionally stack icons above the numeric box on small screens
+    <div
+      className={`flex ${stackOnSmall ? 'flex-col sm:flex-row items-center' : 'items-center'} gap-1 w-full`}
+      role="group"
+      aria-label={`Rating control, current ${Number(boxDisplayValue).toFixed(1)} out of 5`}
+    >
       {/* headphone icons: extremely tight gap, no grow so control stays compact */}
       <div className="flex gap-0.5 items-center flex-shrink-0" onMouseLeave={handleMouseLeave}>
         {[0, 1, 2, 3, 4].map((index) => {
@@ -150,16 +156,17 @@ export default function HeadphoneRating({ value = 0, onChange, size = 'large', s
 
           // If caller explicitly requests a larger preview (boxSizeOverride === 'large'),
           // allow the box to expand and prevent truncation / ellipsis.
-          const expandModifiers = isForcedLarge ? 'max-w-none whitespace-nowrap' : '';
+          const expandModifiers = isForcedLarge ? 'max-w-none whitespace-nowrap' : 'truncate';
 
           return (
             <div
-              className={`border-2 border-black dark:border-white ${boxColorClasses} ${boxClassBase} ${expandModifiers} font-medium text-center ml-auto flex-shrink-0`}
+              // use inline-flex so padding is applied uniformly and content is centered
+              className={`border-2 border-black dark:border-white ${boxColorClasses} ${boxClassBase} ${expandModifiers} font-medium ml-auto flex-shrink-0 inline-flex items-center justify-center`}
               style={{ lineHeight: 1 }}
               aria-hidden="true"
               title={compact ? `${Number(boxDisplayValue).toFixed(1)}` : `${Number(boxDisplayValue).toFixed(1)}/5`}
             >
-              <span className={`inline-block ${isForcedLarge ? 'whitespace-nowrap' : 'w-full'}`}>
+              <span className={`${isForcedLarge ? 'whitespace-nowrap' : 'truncate'} inline-block`}>
                 {compact ? Number(boxDisplayValue).toFixed(1) : `${Number(boxDisplayValue).toFixed(1)}/5`}
               </span>
             </div>
