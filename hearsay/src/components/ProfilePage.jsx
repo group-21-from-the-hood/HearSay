@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import Avatar from './Avatar';
+import { useNavigate } from 'react-router-dom';
+import { emitAuthChange } from '../utils/authBus';
 
 // Google PKCE helpers (duplicated; consider refactoring to shared util later)
 function base64urlencode(a) {
@@ -24,6 +26,7 @@ async function createCodeChallenge(verifier) {
 }
 
 export default function ProfilePage() {
+  const navigate = useNavigate();
   const [state, setState] = useState({ loading: true, error: null, profile: null });
   const [edit, setEdit] = useState({ firstname: '', lastname: '' });
   const [saving, setSaving] = useState(false);
@@ -37,6 +40,7 @@ export default function ProfilePage() {
   const [localLinkLoading, setLocalLinkLoading] = useState(false);
   const [localLinkError, setLocalLinkError] = useState(null);
   const [localLinkSuccess, setLocalLinkSuccess] = useState(false);
+  const [logoutLoading, setLogoutLoading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -58,6 +62,22 @@ export default function ProfilePage() {
     })();
     return () => { cancelled = true; };
   }, []);
+
+  const handleLogout = async () => {
+    if (logoutLoading) return;
+    if (!confirm('Log out now?')) return;
+    setLogoutLoading(true);
+    try {
+      await fetch('/api/logout', { method: 'POST', credentials: 'include' });
+    } catch (e) {
+      console.warn('Logout request failed', e);
+    } finally {
+      try { localStorage.removeItem('hs_user'); } catch {}
+      emitAuthChange({ authenticated: false });
+      setLogoutLoading(false);
+      navigate('/');
+    }
+  };
 
   if (state.loading) {
     return (
@@ -104,12 +124,21 @@ export default function ProfilePage() {
                 <div className="flex justify-between text-black dark:text-white"><span className="text-gray-600 dark:text-gray-400">Last Name</span><span>{p.lastname || '-'}</span></div>
                 <div className="flex justify-between text-black dark:text-white"><span className="text-gray-600 dark:text-gray-400">Email</span><span>{p.email || '-'}</span></div>
                 {saveSuccess && <div className="text-green-600 text-sm">Profile updated.</div>}
-                <button
-                  onClick={() => { setIsEditing(true); setSaveError(null); setSaveSuccess(false); setEdit({ firstname: p.firstname || '', lastname: p.lastname || '' }); }}
-                  className="border-2 border-black dark:border-white bg-white dark:bg-gray-900 text-black dark:text-white px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                >
-                  Edit Profile
-                </button>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => { setIsEditing(true); setSaveError(null); setSaveSuccess(false); setEdit({ firstname: p.firstname || '', lastname: p.lastname || '' }); }}
+                    className="border-2 border-black dark:border-white bg-white dark:bg-gray-900 text-black dark:text-white px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  >
+                    Edit Profile
+                  </button>
+                  <button
+                    onClick={handleLogout}
+                    disabled={logoutLoading}
+                    className="border-2 border-red-600 text-red-700 dark:text-red-400 dark:border-red-500 bg-white dark:bg-gray-900 px-4 py-2 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                  >
+                    {logoutLoading ? 'Logging out…' : 'Logout'}
+                  </button>
+                </div>
               </div>
             )}
             {isEditing && (

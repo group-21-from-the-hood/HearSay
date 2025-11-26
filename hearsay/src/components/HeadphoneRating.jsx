@@ -29,6 +29,13 @@ export default function HeadphoneRating({ value = 0, onChange, size = 'large' })
     onChange?.(rating);
   };
 
+  const handleKey = (rating, event) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      handleClick(rating);
+    }
+  };
+
   const handleMouseMove = (index, event) => {
     // Only allow hover preview if no rating has been selected yet
     if (value === 0) {
@@ -55,6 +62,7 @@ export default function HeadphoneRating({ value = 0, onChange, size = 'large' })
       <svg
         viewBox="0 0 24 24"
         fill="none"
+        aria-hidden="true"
         className="transition-colors"
       >
         {/* Headband */}
@@ -93,15 +101,17 @@ export default function HeadphoneRating({ value = 0, onChange, size = 'large' })
   };
 
   return (
-    <div className="flex items-center gap-3 w-full">
+    <div className="flex items-center gap-3 w-full" role="group" aria-label={`Rating control, current ${Number(boxDisplayValue).toFixed(1)} out of 5`}>
       <div className="flex gap-2" onMouseLeave={handleMouseLeave}>
         {[0, 1, 2, 3, 4].map((index) => {
           const rating = index + 1;
           
           return (
-            <div
+            <button
               key={index}
-              className={`${sizeClasses[size]} cursor-pointer`}
+              type="button"
+              aria-label={`Rate ${rating} ${rating === 1 ? 'star' : 'stars'}`}
+              className={`${sizeClasses[size]} cursor-pointer flex items-center justify-center`}
               onMouseMove={(e) => handleMouseMove(index, e)}
               onClick={(e) => {
                 const rect = e.currentTarget.getBoundingClientRect();
@@ -109,15 +119,16 @@ export default function HeadphoneRating({ value = 0, onChange, size = 'large' })
                 const isLeftHalf = x < rect.width / 2;
                 handleClick(rating - (isLeftHalf ? 0.5 : 0));
               }}
+              onKeyDown={(e) => handleKey(rating, e)}
             >
               <HeadphoneIcon rating={rating} />
-            </div>
+            </button>
           );
         })}
       </div>
 
       {/* Rating Display Box */}
-      <div className={`border-2 border-black dark:border-white ${boxColorClasses} ${boxSizeClasses[size]} font-medium text-center ml-auto`}>
+      <div className={`border-2 border-black dark:border-white ${boxColorClasses} ${boxSizeClasses[size]} font-medium text-center ml-auto`} aria-hidden="true">
         {Number(boxDisplayValue).toFixed(1)}/5
       </div>
     </div>

@@ -95,6 +95,59 @@ h2.accent { color: var(--accent); }
     -webkit-text-stroke: 0.08px #000;
 }
 
+/* Accessible skip link: visually hidden until focused */
+.skip-link {
+    position: absolute;
+    left: -9999px;
+    top: auto;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    z-index: 9999;
+}
+.skip-link:focus,
+.skip-link:active,
+.skip-link:not(.sr-only) {
+    position: fixed;
+    left: 1rem;
+    top: 1rem;
+    width: auto;
+    height: auto;
+    padding: 0.5rem 1rem;
+    background: #ffffff;
+    color: #000;
+    border: 2px solid #000;
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    text-decoration: none;
+}
+
+/* Focus-visible (only show outline when keyboard focusing) */
+:focus {
+    outline: none;
+}
+:focus-visible {
+    outline: 3px solid #2563eb; /* blue focus ring */
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
+/* Increase touch targets to at least 44x44px for buttons/inputs/links */
+button,
+input,
+a[role="button"],
+[role="button"],
+.selectable,
+.avatar-button {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 0.375rem 0.75rem;
+    touch-action: manipulation;
+}
+
+/* Ensure images and SVGs are not keyboard traps */
+img, svg { max-width: 100%; height: auto; }
+
 * {
     scrollbar-width: none;
     -ms-overflow-style: none;
