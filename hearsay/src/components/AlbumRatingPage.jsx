@@ -413,6 +413,8 @@ export default function AlbumRatingPage() {
                   value={albumRating}
                   onChange={setAlbumRating}
                   size="medium"
+                  showBox={true}
+                  boxSizeOverride="large"  // <- make numeric preview larger for album-level rating
                 />
               </div>
               {hasSavedRating && !isEditingRating ? (
@@ -449,26 +451,42 @@ export default function AlbumRatingPage() {
               <h2 className="font-semibold p-4 pb-2 border-b-2 border-black dark:border-white">
                 <span className="text-black dark:text-white">Track List</span>
               </h2>
-              <div className="overflow-y-auto p-4 pt-2 flex-1">
-                <div className="space-y-3">
+              {/* Reduced padding so track rows have more horizontal room */}
+              <div className="overflow-y-auto p-1 pt-1 flex-1">
+                <div className="space-y-1">
                   {tracks.map((track) => (
-                    <div key={track.id} className="flex flex-col gap-1 py-2 border-b border-black dark:border-white last:border-0">
-                      <div className="flex items-center gap-2">
-                        <span className="w-6 text-gray-500 dark:text-gray-400 text-sm">{track.trackNumber}</span>
+                    <div
+                      key={track.id}
+                      className="grid grid-cols-[auto_1fr_auto] items-start gap-x-2 py-1 border-b border-black dark:border-white last:border-0"
+                    >
+                      {/* Track number (increased left padding) */}
+                      <div className="text-right text-gray-500 dark:text-gray-400 text-sm pr-1 pl-2">
+                        {track.trackNumber}
+                      </div>
+
+                      {/* Title + rating underneath */}
+                      <div className="min-w-0 pl-3">
                         <Link
                           to={`/song/${track.id}`}
-                          className="flex-1 text-sm truncate text-black dark:text-white hover:underline"
+                          className="block text-sm truncate text-black dark:text-white hover:underline"
                         >
                           {track.name}
                         </Link>
-                        <span className="text-gray-500 dark:text-gray-400 text-xs">{formatDuration(track.duration)}</span>
+                        <div className="mt-1">
+                          {/* showBox + compact ensures a small numeric preview appears and fits the narrow column */}
+                          <HeadphoneRating
+                            size="small"
+                            value={trackRatings[track.id] || 0}
+                            onChange={(rating) => handleTrackRating(track.id, rating)}
+                            showBox={true}
+                            compact={true}
+                          />
+                        </div>
                       </div>
-                      <div className="ml-8">
-                        <HeadphoneRating
-                          size="small"
-                          value={trackRatings[track.id] || 0}
-                          onChange={(rating) => handleTrackRating(track.id, rating)}
-                        />
+
+                      {/* Duration */}
+                      <div className="text-right text-gray-500 dark:text-gray-400 text-xs pr-1">
+                        {formatDuration(track.duration)}
                       </div>
                     </div>
                   ))}
