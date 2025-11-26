@@ -113,15 +113,15 @@ export default function ReviewPage() {
               )}
             </div>
 
-            {/* Right column: title, icons, big number, date, text */}
+            {/* Right column: responsive stacking so review text appears above the rating controls on mobile */}
             <div className="flex-1">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between">
-                <div className="min-w-0 pr-4">
+                <div className="min-w-0 pr-4 order-1">
                   <h2 className="text-sm sm:text-base uppercase tracking-wide font-semibold text-black dark:text-white leading-tight">
                     {review.media?.title || review.oid}
                   </h2>
 
-                  {/* Desktop: small inline icons (no numeric) shown next to title; hidden on mobile */}
+                  {/* Desktop: inline icons (no numeric) - hidden on mobile */}
                   <div className="hidden sm:flex mt-2 items-center gap-3 pointer-events-none">
                     <HeadphoneRating
                       value={review.rating}
@@ -131,23 +131,10 @@ export default function ReviewPage() {
                       compact={false}
                     />
                   </div>
-
-                  {/* Mobile: stacked rating (icons above numeric) shown below the title */}
-                  <div className="block sm:hidden mt-2">
-                    <HeadphoneRating
-                      value={review.rating}
-                      onChange={() => {}}
-                      size="small"
-                      showBox={true}
-                      boxSizeOverride="medium"
-                      compact={false}
-                      stackOnSmall={true}
-                    />
-                  </div>
                 </div>
 
                 {/* Desktop-only large numeric preview on the right (hidden on small screens) */}
-                <div className="ml-0 sm:ml-4 flex-shrink-0 hidden sm:flex">
+                <div className="ml-0 sm:ml-4 flex-shrink-0 hidden sm:flex order-2">
                   <HeadphoneRating
                     value={review.rating}
                     onChange={() => {}}
@@ -160,12 +147,12 @@ export default function ReviewPage() {
               </div>
 
               {/* Date */}
-              <div className="mt-2 text-xs text-gray-600 dark:text-gray-400">
+              <div className="mt-2 text-xs text-gray-600 dark:text-gray-400 order-3">
                 {new Date(review.createdAt || review.updatedAt || Date.now()).toLocaleString()}
               </div>
 
-              {/* Review text */}
-              <div className="mt-3">
+              {/* Review text: show before mobile rating controls */}
+              <div className="mt-3 order-4">
                 {editMode && review.canEdit ? (
                   <>
                     <textarea
@@ -205,6 +192,19 @@ export default function ReviewPage() {
                     >Edit Review</button>
                   </div>
                 )}
+              </div>
+
+              {/* Mobile stacked rating: icons + numeric below the review text (hidden on desktop) */}
+              <div className="block sm:hidden mt-3 order-5">
+                <HeadphoneRating
+                  value={review.rating}
+                  onChange={() => {}}
+                  size="small"
+                  showBox={true}
+                  boxSizeOverride="medium"
+                  compact={false}
+                  stackOnSmall={true}
+                />
               </div>
             </div>
           </div>

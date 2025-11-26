@@ -342,12 +342,11 @@ export default function AlbumRatingPage() {
               />
             </div>
             
-            {/* Review */}
-            <div className="border-2 border-black dark:border-white p-4 bg-white dark:bg-gray-900 text-black dark:text-white">
+            {/* Review text above rating */}
+            <div className="border-2 border-black dark:border-white p-4 bg-white dark:bg-gray-900 text-black dark:text-white mb-6">
               <h2 className="font-semibold mb-4">
                 <span className="text-black dark:text-white">Review</span>
               </h2>
-              
               {hasSavedReview && !isEditingReview ? (
                 <>
                   <div className="whitespace-pre-wrap border-2 border-black dark:border-white bg-white dark:bg-gray-800 text-black dark:text-white p-2 min-h-[8rem]">
@@ -402,19 +401,18 @@ export default function AlbumRatingPage() {
               )}
             </div>
 
-            {/* Album Rating */}
-            <div className="border-2 border-black dark:border-white p-4 mt-6 bg-white dark:bg-gray-900 text-black dark:text-white">
+            {/* Album Rating below review text */}
+            <div className="border-2 border-black dark:border-white p-4 bg-white dark:bg-gray-900 text-black dark:text-white">
               <h2 className="font-semibold mb-4">
                 <span className="text-black dark:text-white">Album Rating</span>
               </h2>
-              
               <div className={`flex justify-center mb-4 ${hasSavedRating && !isEditingRating ? 'pointer-events-none opacity-90' : ''}`}>
                 <HeadphoneRating
                   value={albumRating}
                   onChange={setAlbumRating}
                   size="medium"
                   showBox={true}
-                  boxSizeOverride="large"  // <- make numeric preview larger for album-level rating
+                  boxSizeOverride="large"
                 />
               </div>
               {hasSavedRating && !isEditingRating ? (
@@ -465,20 +463,15 @@ export default function AlbumRatingPage() {
                         {track.trackNumber}
                       </div>
 
-                      {/* Title */}
-                      <div className="min-w-0 pl-3 sm:order-2">
+                      {/* Title and rating stacked */}
+                      <div className="min-w-0 pl-3 sm:order-2 flex flex-col">
                         <Link
                           to={`/song/${track.id}`}
-                          className="block text-sm truncate text-black dark:text-white hover:underline"
+                          className="block text-sm text-black dark:text-white hover:underline whitespace-normal break-words mb-1"
                         >
                           {track.name}
                         </Link>
-                      </div>
-
-                      {/* Rating control: placed in its own cell so on mobile (grid-cols-1) it appears beneath the title.
-                          Use mt on mobile via default gap-y; on sm+ it stays aligned to the right column area. */}
-                      <div className="sm:order-3 sm:col-auto sm:flex sm:items-center sm:justify-end mt-0">
-                        <div className="mt-2 sm:mt-0">
+                        <div>
                           <HeadphoneRating
                             size="small"
                             value={trackRatings[track.id] || 0}
