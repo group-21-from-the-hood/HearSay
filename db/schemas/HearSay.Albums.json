@@ -1,0 +1,23 @@
+[{
+  "_id": {
+    "$oid": "690e9e2608710371a0c7dbd5"
+  },
+  "spotifyAlbumId": "",
+  "name": "",
+  "releaseDate": "",
+  "likes": "",
+  "dislikes": "",
+  "rating": "",
+  "review": {
+    "oid": ""
+  },
+  "artist": {
+    "oid": ""
+  },
+  "songs": [
+    {
+      "oid": ""
+    }
+  ],
+  "genre": []
+}]

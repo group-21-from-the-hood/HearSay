@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "_id",
+    "createdAt",
+    "dislikes",
+    "followers",
+    "genres",
+    "image",
+    "likes",
+    "name",
+    "popularity",
+    "rating",
+    "spotifyArtistId",
+    "spotifyUrl",
+    "updatedAt"
+  ],
+  "properties": {
+    "_id": {
+      "$ref": "#/$defs/ObjectId"
+    },
+    "albums": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "oid"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "oid": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "createdAt": {
+      "type": "string"
+    },
+    "dislikes": {
+      "type": "string"
+    },
+    "followers": {
+      "type": "integer"
+    },
+    "genres": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "image": {
+      "type": "string"
+    },
+    "likes": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "popularity": {
+      "type": "integer"
+    },
+    "rating": {
+      "type": "string"
+    },
+    "reviews": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "review_oid",
+          "user_oid"
+        ],
+        "properties": {
+          "review_oid": {
+            "type": "string"
+          },
+          "user_oid": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "songs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "oid"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "oid": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "spotifyArtistId": {
+      "type": "string"
+    },
+    "spotifyUrl": {
+      "type": "string"
+    },
+    "updatedAt": {
+      "type": "string"
+    }
+  },
+  "$defs": {
+    "ObjectId": {
+      "type": "object",
+      "properties": {
+        "$oid": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{24}$"
+        }
+      },
+      "required": [
+        "$oid"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

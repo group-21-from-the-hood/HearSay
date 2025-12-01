@@ -1,0 +1,51 @@
+{
+  "name": "hearsay",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "buildd": "vite build",
+    "server": "node server/index.js",
+    "dev:alll": "concurrently \"npm run server\" \"npm run dev\"",
+    "db:dedupe-users": "node server/scripts/dedupe-users.mjs",
+    "lint": "eslint .",
+    "preview": "vite preview",
+    "dev:backend": "cross-env NODE_ENV=development node --watch server/index.js",
+    "dev:frontend": "cross-env NODE_ENV=development vite",
+    "dev:all": "cross-env NODE_ENV=development concurrently -n backend,frontend -c green,cyan \"npm:dev:backend\" \"npm:dev:frontend\"",
+    "build": "cross-env NODE_ENV=production vite build",
+    "start:backend": "cross-env NODE_ENV=production node server/index.js"
+  },
+  "dependencies": {
+    "@react-oauth/google": "^0.12.2",
+    "@tailwindcss/vite": "^4.1.16",
+    "axios": "^1.13.2",
+    "connect-mongo": "^5.1.0",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "express-session": "^1.17.3",
+    "lucide-react": "^0.552.0",
+    "mongodb": "^6.9.0",
+    "bcryptjs": "^2.4.3",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "react-router-dom": "^7.9.5",
+    "spotify-web-api-node": "^5.0.2",
+    "tailwindcss": "^4.1.16"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.36.0",
+    "@types/react": "^19.1.16",
+    "@types/react-dom": "^19.1.9",
+    "@vitejs/plugin-react": "^5.0.4",
+    "concurrently": "^7.6.0",
+    "cross-env": "^10.1.0",
+    "eslint": "^9.36.0",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-refresh": "^0.4.22",
+    "globals": "^16.4.0",
+    "vite": "^7.1.7"
+  }
+}

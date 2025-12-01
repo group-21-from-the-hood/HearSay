@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "_id",
+    "album",
+    "artist",
+    "date",
+    "dislikes",
+    "genres",
+    "image",
+    "likes",
+    "rating",
+    "reviews",
+    "spotifyTrackID",
+    "title"
+  ],
+  "properties": {
+    "_id": {
+      "$ref": "#/$defs/ObjectId"
+    },
+    "album": {
+      "type": "object",
+      "required": [
+        "name",
+        "oid",
+        "spotifyAlbumId"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "oid": {
+          "type": "string"
+        },
+        "spotifyAlbumId": {
+          "type": "string"
+        }
+      }
+    },
+    "artist": {
+      "type": "object",
+      "required": [
+        "name",
+        "oid",
+        "spotifyArtistId"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "oid": {
+          "type": "string"
+        },
+        "spotifyArtistId": {
+          "type": "string"
+        }
+      }
+    },
+    "date": {
+      "type": "string"
+    },
+    "dislikes": {
+      "type": "string"
+    },
+    "genres": {
+      "type": "array",
+      "items": {
+        "type": []
+      }
+    },
+    "image": {
+      "type": "string"
+    },
+    "likes": {
+      "type": "string"
+    },
+    "rating": {
+      "type": "string"
+    },
+    "reviews": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "review_oid",
+          "user_oid"
+        ],
+        "properties": {
+          "review_oid": {
+            "type": "string"
+          },
+          "user_oid": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "spotifyTrackID": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    }
+  },
+  "$defs": {
+    "ObjectId": {
+      "type": "object",
+      "properties": {
+        "$oid": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{24}$"
+        }
+      },
+      "required": [
+        "$oid"
+      ],
+      "additionalProperties": false
+    }
+  }
+}
